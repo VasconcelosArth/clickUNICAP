@@ -134,6 +134,24 @@ time_entries                    (Pessoa 10)
   índice único parcial: (user_id) where ended_at is null   -- garante 1 timer ativo por usuário
 ```
 
+## Onde está cada tabela no código
+
+Todas as tabelas já existem (Etapa 0). Cada frente **usa** a sua; para alterar, edite o arquivo e gere uma migration.
+
+| Arquivo em `apps/api/src/core/database/schema/` | Tabelas |
+|---|---|
+| `_columns.ts` | helpers `id()`, `timestamps()`, `createdAt()`, `citext` |
+| `enums.ts` | `member_role`, `task_status`, `task_priority`, `notification_type`, `custom_field_type` (valores vindos do shared) |
+| `users.ts` | `users`, `refresh_tokens`, `password_reset_tokens` |
+| `workspaces.ts` | `workspaces`, `workspace_members`, `workspace_invites` |
+| `projects.ts` | `projects` |
+| `tasks.ts` | `tasks` |
+| `collaboration.ts` | `subtasks`, `comments`, `comment_mentions`, `notifications` |
+| `phase2.ts` | `attachments`, `custom_fields`, `task_custom_field_values`, `task_dependencies`, `time_entries` |
+
+Migrations atuais: `0000_extensions.sql` (citext, pgcrypto) e `0001_initial_schema.sql` (todas as tabelas).
+O teste `schema.spec.ts` falha se uma tabela sumir, se uma coluna fugir do snake_case ou se um enum divergir do shared.
+
 ## Ordenação no Kanban (`position`)
 
 Usamos **posição fracionária**: ao soltar um cartão entre A (posição 1) e B (posição 2), o novo cartão fica em 1.5.

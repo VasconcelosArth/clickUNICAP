@@ -11,6 +11,33 @@ constrói a base do sistema, as Pessoas 2 a 5 fazem o resto do MVP e as Pessoas 
 | **Fase 2** | Recursos de gestão de projeto | Calendário, anexos, campos personalizados, dependências + Gantt, controle de tempo, automações |
 | **Fase 3** | Plataforma completa | Dashboards, docs, metas, chat, whiteboard, integrações, IA |
 
+## Ordem de construção: backend primeiro, frontend depois
+
+**Regra do projeto:** o frontend só começa depois que o backend da etapa estiver pronto. Assim a tela é construída
+em cima de uma API real e testada, e não sobre suposições que mudam depois.
+
+```
+Etapa 0 ─ Fundação (Pessoa 1) ......................... ✅ feita
+          monorepo, packages/shared, API NestJS, banco completo (17 tabelas) + migrations, Docker
+              │
+Etapa 1 ─ BACKEND do MVP (todos, em paralelo) .......... ⏳ agora
+          Pessoa 1: auth, workspaces, projects, tasks        Pessoa 4: subtasks, comments
+          Pessoa 2: filtros/busca/my-tasks em tasks          Pessoa 5: notifications
+          Pessoa 3: rota de mover/reordenar (Kanban)
+          Pessoas 6–10: backend da Fase 2 (as tabelas já existem)
+              │   critério de saída: rotas no Swagger + testes unitários e e2e passando
+              ▼
+Etapa 2 ─ FRONTEND (começa quando a Etapa 1 do MVP fechar)
+          Pessoa 1: setup do apps/web, layout, components/ui, auth e telas da base, slots
+          demais: a feature de cada frente, consumindo a API real
+              │
+Etapa 3 ─ Integração, ponta a ponta (Playwright) e backlog reserva
+```
+
+**Enquanto espera a Etapa 2**, quem terminar o próprio backend antes deve, nesta ordem: ajudar a fechar o backend de
+outra frente, escrever testes e2e de fluxos entre módulos, e pegar o backend de um item do backlog reserva.
+**Ninguém começa tela antes da hora.**
+
 ## As 10 frentes
 
 Cada frente tem **um dono**. O dono é responsável pelo módulo no backend, pela feature no frontend, pelas
@@ -33,19 +60,24 @@ tabelas e pelos testes da frente.
 
 A base é o que **todo mundo usa**, então ela vem primeiro e precisa de prazo curto.
 
-**Semana 1 (destrava o time):**
-- [ ] Monorepo configurado (`pnpm`, `apps/api`, `apps/web`, `packages/shared`), lint, format e CI.
-- [ ] `docker compose up` sobe o Postgres.
-- [ ] Schema Drizzle com as tabelas da base e a primeira migration.
-- [ ] `packages/shared` com os schemas Zod de `Task`, `Project`, `User` e enums.
-- [ ] API `/api/tasks` respondendo (pode ser com dados fixos) e documentada no Swagger.
-- [ ] Layout base do frontend (menu lateral, topo, rotas) e componentes de UI (`Button`, `Input`, `Modal`, `Select`).
-- [ ] Tela de detalhe da tarefa com os **slots** vazios (ver abaixo).
+**Etapa 0 — Fundação (feita):**
+- [x] Monorepo pnpm (`apps/api`, `packages/shared`), TypeScript strict, ESLint e Prettier.
+- [x] `docker compose up` sobe o Postgres de dev e o de teste.
+- [x] Schema Drizzle com **todas as 17 tabelas** do [modelo de dados](06-banco-de-dados.md) e as migrations iniciais.
+- [x] `packages/shared` com enums e schemas Zod de `User`, `Workspace`, `Project` e `Task` (com testes).
+- [x] API NestJS: config validada, módulo de banco, erros de domínio, filtro de erros, `ZodValidationPipe`, `/api/health`.
+- [x] Infra de testes: Jest (unitário) e e2e contra o banco de teste.
 
-**Semanas 2 e 3:**
-- [ ] Cadastro, login, logout, recuperar senha, perfil.
-- [ ] Workspace, convites, papéis.
-- [ ] CRUD real de projetos e tarefas.
+**Etapa 1 — Backend da base (prioridade: destravar o time):**
+- [ ] `core/auth`: `JwtAuthGuard` global, `@Public()`, `@CurrentUser()`; `core/guards`: `WorkspaceMemberGuard`, `RolesGuard`.
+- [ ] Módulo `auth`: cadastro, login, logout, refresh, recuperar senha. Módulo `users`: perfil.
+- [ ] Módulo `workspaces`: CRUD, membros, convites, papéis.
+- [ ] Módulos `projects` e `tasks`: CRUD com filtro por workspace, exportando `TasksService` para as outras frentes.
+- [ ] Swagger em `/api/docs`; eventos de domínio (`core/events`); factories de teste e `db:seed`.
+
+**Etapa 2 — Frontend da base (só depois da Etapa 1):**
+- [ ] Setup do `apps/web`, layout (menu lateral, topo, rotas), `components/ui`, cliente HTTP.
+- [ ] Telas de auth, workspaces, projetos e detalhe da tarefa com os **slots** (ver abaixo).
 
 ### Detalhe das outras frentes
 

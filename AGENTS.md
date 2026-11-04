@@ -9,6 +9,13 @@
 pessoas). Hierarquia: **Workspace → Project → Task → Subtask**. Views: Lista, Kanban, Calendário e Gantt, todas sobre
 a mesma API de tarefas. Referência do produto: [`docs/01-clickup-referencia.md`](docs/01-clickup-referencia.md).
 
+## Estado atual e ordem de construção
+
+**Backend primeiro, frontend depois** ([docs/02](docs/02-organizacao-do-projeto.md#ordem-de-construção-backend-primeiro-frontend-depois)).
+- ✅ Etapa 0 (fundação): monorepo, `packages/shared`, `apps/api` com core, as 17 tabelas e as migrations.
+- ⏳ Etapa 1 (agora): backend dos módulos de cada frente.
+- ⛔ Etapa 2: `apps/web` **ainda não existe**. Não crie código de frontend até a Etapa 1 do MVP fechar.
+
 ## Stack (não troque sem um ADR)
 
 - Monorepo **pnpm workspaces**: `apps/api` (NestJS 11), `apps/web` (React 19 + Vite), `packages/shared` (Zod).
