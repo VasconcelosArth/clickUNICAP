@@ -71,8 +71,8 @@ A base é o que **todo mundo usa**, então ela vem primeiro e precisa de prazo c
 **Etapa 1 — Backend da base (prioridade: destravar o time):**
 - [x] `core/auth`: `JwtAuthGuard` global, `@Public()`, `@CurrentUser()`.
 - [x] Módulo `auth`: cadastro, login, logout, refresh com rotação, recuperar senha. Módulo `users`: `GET/PATCH /api/users/me`.
-- [ ] `core/guards`: `WorkspaceMemberGuard`, `RolesGuard`, `@CurrentWorkspace()`.
-- [ ] Módulo `workspaces`: CRUD, membros, convites, papéis.
+- [x] `core/guards`: `WorkspaceMemberGuard`, `RolesGuard`, `@Roles()`, `@CurrentWorkspace()`, `@CurrentMembership()`.
+- [x] Módulo `workspaces`: CRUD, membros, papéis, convites por e-mail (exporta `WorkspacesService.isMember()`).
 - [ ] Módulos `projects` e `tasks`: CRUD com filtro por workspace, exportando `TasksService` para as outras frentes.
 - [ ] Swagger em `/api/docs`; eventos de domínio (`core/events`); factories de teste e `db:seed`.
 

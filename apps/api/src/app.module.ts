@@ -8,6 +8,7 @@ import { MailModule } from '@/core/mail/mail.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { HealthModule } from '@/modules/health/health.module';
 import { UsersModule } from '@/modules/users/users.module';
+import { WorkspacesModule } from '@/modules/workspaces/workspaces.module';
 
 /**
  * Módulo raiz. Cada módulo de negócio novo é registrado em `imports`.
@@ -24,6 +25,7 @@ import { UsersModule } from '@/modules/users/users.module';
     HealthModule,
     UsersModule,
     AuthModule,
+    WorkspacesModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

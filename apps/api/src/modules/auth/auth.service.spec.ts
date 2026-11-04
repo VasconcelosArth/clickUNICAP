@@ -8,7 +8,7 @@ import { UsersService } from '@/modules/users/users.service';
 import { AuthRepository, type PasswordResetTokenRow, type RefreshTokenRow } from './auth.repository';
 import { AuthService } from './auth.service';
 import { PasswordHasher } from './password-hasher';
-import { hashToken } from './utils/opaque-token';
+import { hashToken } from '@/core/auth/opaque-token';
 
 const userRow: UserRow = {
   id: 'u1',

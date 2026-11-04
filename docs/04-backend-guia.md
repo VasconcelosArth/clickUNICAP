@@ -286,9 +286,10 @@ export class DatabaseModule {}
 
 ## Transações
 
-Quando um service grava em **mais de uma tabela** (ex.: criar workspace + adicionar o criador como admin), use uma
-transação. Padrão adotado: **`@nestjs-cls/transactional` com o adapter de Drizzle**, para que os repositories
-participem da transação sem receber `tx` por parâmetro.
+Quando uma operação grava em **mais de uma tabela** (ex.: criar workspace + adicionar o criador como admin), use uma
+transação. **Padrão atual:** o próprio repository expõe um método que faz tudo dentro de `this.db.transaction(...)`
+(veja `WorkspacesRepository.createWithOwner` e `acceptInvite`). Se surgir uma transação que atravesse vários
+repositories, adotaremos `@nestjs-cls/transactional` (exemplo abaixo) via ADR.
 
 ```ts
 @Transactional()
@@ -331,6 +332,39 @@ Nunca lance `HttpException` dentro de service. Nunca devolva stack trace para o 
   confere a participação e injeta o workspace via `@CurrentWorkspace()`.
 - **`@Roles('admin')`** + `RolesGuard` para ações de admin (convidar, remover membro, criar campo personalizado).
 - **Permissão fina** (ex.: "só o autor edita o comentário") fica **no service**, porque é regra de negócio.
+
+### Usando os guards de workspace (já implementados)
+
+```ts
+@Controller('projects')
+@UseGuards(WorkspaceMemberGuard)               // membro do workspace do header X-Workspace-Id, senão 404
+export class ProjectsController {
+  @Get()
+  list(@CurrentWorkspace() workspaceId: string) { ... }
+
+  @Delete(':id')
+  @UseGuards(WorkspaceMemberGuard, RolesGuard) // a ordem importa: primeiro descobre o papel, depois confere
+  @Roles('admin')
+  remove(@CurrentMembership() ws: WorkspaceContext) { ... }  // ws = { id, role }
+}
+```
+
+- O workspace vem do parâmetro `:workspaceId` da rota ou, se não houver, do header **`X-Workspace-Id`**.
+- Para validar que um usuário (ex.: o responsável de uma tarefa) é do workspace, use `WorkspacesService.isMember()`.
+- Em testes e2e, use `registerUser(app)` e `registerUserWithWorkspace(app)` de `test/utils/auth-helpers.ts`.
+
+### Rotas de workspaces (já implementadas)
+
+| Rota | Quem pode |
+|---|---|
+| `POST /api/workspaces` · `GET /api/workspaces` | Qualquer usuário logado (cria / lista os seus, com `myRole`) |
+| `GET /api/workspaces/:id` · `GET /:id/members` | Membros |
+| `PATCH /api/workspaces/:id` | Admin |
+| `DELETE /api/workspaces/:id` | Só o **dono** |
+| `PATCH /:id/members/:userId` (papel) | Admin. O papel do dono não muda; sempre resta 1 admin |
+| `DELETE /:id/members/:userId` | Admin remove outros; qualquer membro remove a si mesmo (sair). O dono não sai |
+| `POST /:id/invites` · `GET /:id/invites` · `DELETE /:id/invites/:inviteId` | Admin. Convite por e-mail, vale 7 dias |
+| `POST /api/invites/accept` `{ token }` | O usuário logado com o **mesmo e-mail** do convite |
 
 ### Rotas de autenticação (já implementadas)
 

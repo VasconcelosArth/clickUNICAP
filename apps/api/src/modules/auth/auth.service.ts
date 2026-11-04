@@ -11,7 +11,7 @@ import type { UserRow } from '@/modules/users/users.repository';
 import { UsersService } from '@/modules/users/users.service';
 import { AuthRepository } from './auth.repository';
 import { PasswordHasher } from './password-hasher';
-import { generateOpaqueToken, hashToken } from './utils/opaque-token';
+import { generateOpaqueToken, hashToken } from '@/core/auth/opaque-token';
 
 /** O que o controller precisa para responder e montar os cookies. */
 export interface Session {
