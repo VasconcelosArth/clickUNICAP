@@ -69,8 +69,9 @@ A base é o que **todo mundo usa**, então ela vem primeiro e precisa de prazo c
 - [x] Infra de testes: Jest (unitário) e e2e contra o banco de teste.
 
 **Etapa 1 — Backend da base (prioridade: destravar o time):**
-- [ ] `core/auth`: `JwtAuthGuard` global, `@Public()`, `@CurrentUser()`; `core/guards`: `WorkspaceMemberGuard`, `RolesGuard`.
-- [ ] Módulo `auth`: cadastro, login, logout, refresh, recuperar senha. Módulo `users`: perfil.
+- [x] `core/auth`: `JwtAuthGuard` global, `@Public()`, `@CurrentUser()`.
+- [x] Módulo `auth`: cadastro, login, logout, refresh com rotação, recuperar senha. Módulo `users`: `GET/PATCH /api/users/me`.
+- [ ] `core/guards`: `WorkspaceMemberGuard`, `RolesGuard`, `@CurrentWorkspace()`.
 - [ ] Módulo `workspaces`: CRUD, membros, convites, papéis.
 - [ ] Módulos `projects` e `tasks`: CRUD com filtro por workspace, exportando `TasksService` para as outras frentes.
 - [ ] Swagger em `/api/docs`; eventos de domínio (`core/events`); factories de teste e `db:seed`.

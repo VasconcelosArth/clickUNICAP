@@ -1,16 +1,30 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
+import { CoreAuthModule } from '@/core/auth/core-auth.module';
 import { ConfigModule } from '@/core/config';
 import { DatabaseModule } from '@/core/database/database.module';
 import { AllExceptionsFilter } from '@/core/filters/all-exceptions.filter';
+import { MailModule } from '@/core/mail/mail.module';
+import { AuthModule } from '@/modules/auth/auth.module';
 import { HealthModule } from '@/modules/health/health.module';
+import { UsersModule } from '@/modules/users/users.module';
 
 /**
- * Módulo raiz. Cada módulo de negócio novo é registrado em `imports`
- * (ex.: AuthModule, WorkspacesModule, TasksModule...).
+ * Módulo raiz. Cada módulo de negócio novo é registrado em `imports`.
+ * Ordem: primeiro o core (infraestrutura), depois os módulos de negócio.
  */
 @Module({
-  imports: [ConfigModule, DatabaseModule, HealthModule],
+  imports: [
+    // core
+    ConfigModule,
+    DatabaseModule,
+    MailModule,
+    CoreAuthModule,
+    // negócio
+    HealthModule,
+    UsersModule,
+    AuthModule,
+  ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })
 export class AppModule {}

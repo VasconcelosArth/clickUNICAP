@@ -60,6 +60,30 @@ pnpm --filter api db:studio           # Drizzle Studio
 pnpm lint && pnpm typecheck && pnpm test   # o mesmo que o CI roda
 ```
 
+## E-mail com Resend
+
+Por padrão (`MAIL_TRANSPORT=log`) nenhum e-mail sai: o conteúdo, com o link de recuperação de senha, aparece no
+terminal da API. Para enviar de verdade pelo [Resend](https://resend.com):
+
+1. Crie uma conta em https://resend.com e gere uma chave em **API Keys** (permissão *Sending access*).
+2. No seu `.env` (nunca no `.env.example`):
+   ```env
+   MAIL_TRANSPORT=resend
+   RESEND_API_KEY=re_sua_chave_aqui
+   MAIL_FROM="ClickUNICAP <onboarding@resend.dev>"
+   WEB_URL=http://localhost:5173
+   ```
+3. Reinicie a API. Se a chave faltar ou estiver errada, a API **não sobe** e diz qual variável corrigir.
+4. Teste: `POST /api/auth/forgot-password` com o seu e-mail cadastrado.
+
+**Limitações da conta gratuita sem domínio:** com o remetente `onboarding@resend.dev`, o Resend só entrega para o
+e-mail **dono da conta Resend**. Para mandar para qualquer pessoa, verifique um domínio em **Domains** e troque o
+`MAIL_FROM` para um endereço desse domínio (ex.: `no-reply@seudominio.com`).
+
+**Se o Resend falhar** (chave revogada, domínio não verificado, limite atingido), a rota de recuperação continua
+respondendo 204 para não revelar quais e-mails existem. O erro aparece no log da API como
+`Falha ao enviar e-mail de recuperação`.
+
 ## Problemas comuns
 
 | Sintoma | Causa provável | Solução |
@@ -68,4 +92,7 @@ pnpm lint && pnpm typecheck && pnpm test   # o mesmo que o CI roda
 | API não sobe: "Missing env DATABASE_URL" | Falta o `.env` | `cp .env.example .env` |
 | e2e falha com `ECONNREFUSED 5433` | Banco de teste parado | `docker compose up -d postgres-test` |
 | Migration diz que a tabela já existe | Banco local com `push` antigo | `docker compose down -v && docker compose up -d && pnpm --filter api db:migrate` |
+| API não sobe: "RESEND_API_KEY: Obrigatória quando MAIL_TRANSPORT=resend" | Chave ausente ou sem o prefixo `re_` | Coloque a chave no `.env` ou volte para `MAIL_TRANSPORT=log` |
+| Recuperação de senha não chega | Remetente `onboarding@resend.dev` enviando para outro e-mail | Teste com o e-mail dono da conta Resend ou verifique um domínio |
+| `429 Muitas tentativas` no login | Limite contra força bruta (5 por minuto por IP) | Espere 1 minuto |
 | Windows: scripts quebram por causa de CRLF | Fim de linha | O `.gitattributes` força LF; rode `git add --renormalize .` |

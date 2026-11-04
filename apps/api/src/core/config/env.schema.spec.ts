@@ -24,6 +24,24 @@ describe('parseEnv', () => {
     );
   });
 
+  it('usa o transporte de e-mail "log" por padrão (não precisa de chave)', () => {
+    expect(parseEnv(valid).MAIL_TRANSPORT).toBe('log');
+  });
+
+  it('exige RESEND_API_KEY quando MAIL_TRANSPORT=resend', () => {
+    expect(() => parseEnv({ ...valid, MAIL_TRANSPORT: 'resend' })).toThrow(/RESEND_API_KEY/);
+    expect(() => parseEnv({ ...valid, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 'chave-errada' })).toThrow(
+      /RESEND_API_KEY/,
+    );
+    expect(parseEnv({ ...valid, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_123abc' }).RESEND_API_KEY).toBe(
+      're_123abc',
+    );
+  });
+
+  it('trata variável vazia no .env como ausente', () => {
+    expect(parseEnv({ ...valid, RESEND_API_KEY: '' }).RESEND_API_KEY).toBeUndefined();
+  });
+
   it('rejeita segredo JWT curto', () => {
     expect(() => parseEnv({ ...valid, JWT_REFRESH_SECRET: '123' })).toThrow(/JWT_REFRESH_SECRET/);
   });

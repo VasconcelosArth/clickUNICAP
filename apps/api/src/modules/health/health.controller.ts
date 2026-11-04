@@ -1,8 +1,10 @@
 import { Controller, Get, HttpCode, Inject } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
+import { Public } from '@/core/auth';
 import { DRIZZLE, type Database } from '@/core/database/database.module';
 
 /** GET /api/health — usado por quem sobe o ambiente e por monitoramento. */
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(@Inject(DRIZZLE) private readonly db: Database) {}

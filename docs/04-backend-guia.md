@@ -332,6 +332,28 @@ Nunca lance `HttpException` dentro de service. Nunca devolva stack trace para o 
 - **`@Roles('admin')`** + `RolesGuard` para ações de admin (convidar, remover membro, criar campo personalizado).
 - **Permissão fina** (ex.: "só o autor edita o comentário") fica **no service**, porque é regra de negócio.
 
+### Rotas de autenticação (já implementadas)
+
+| Rota | O que faz |
+|---|---|
+| `POST /api/auth/register` | Cria a conta e já abre a sessão (201 `{ user }` + cookies) |
+| `POST /api/auth/login` | 200 `{ user }` + cookies. Erro sempre "E-mail ou senha inválidos" |
+| `POST /api/auth/refresh` | Troca o refresh token por um novo (**rotação**). Reusar um token antigo encerra todas as sessões |
+| `POST /api/auth/logout` | Revoga a sessão e apaga os cookies (204) |
+| `POST /api/auth/forgot-password` | Sempre 204; se o e-mail existe, envia o link (em dev, aparece no log da API) |
+| `POST /api/auth/reset-password` | Troca a senha com o token do link (vale 1 h, uso único) e derruba as sessões |
+| `GET/PATCH /api/users/me` | Perfil do usuário logado |
+
+**Limite de tentativas (por IP, por minuto):** login 5, cadastro 5, recuperar senha 3, redefinir senha 5, demais
+rotas de auth 20. Ao estourar: `429 TOO_MANY_REQUESTS`. Desligado nos testes.
+
+**E-mail:** `core/mail` escolhe o transporte pelo `.env`: `log` em dev ou `resend` para envio real
+(configuração em [10 — Ambiente local](10-ambiente-local.md#e-mail-com-resend)). Para um e-mail novo, crie um template
+em `core/mail/templates/` (texto + HTML, escapando dados do usuário com `escapeHtml`) e chame `MailService.send()`.
+
+Cookies: `access_token` (path `/api`, 15 min) e `refresh_token` (path `/api/auth`, 7 dias), ambos httpOnly e
+SameSite=Lax (Secure em produção). Ferramentas como Insomnia podem mandar `Authorization: Bearer <access_token>`.
+
 | Rota | Guard / decorator |
 |---|---|
 | `POST /api/auth/login` | `@Public()` |
