@@ -1,0 +1,35 @@
+# Substitua @pessoaN pelo usuário do GitHub de cada integrante.
+# O dono é chamado automaticamente para revisar PRs que mexem nos seus arquivos.
+
+# Base e contrato (Pessoa 1)
+/packages/shared/                       @pessoa1
+/apps/api/src/core/                     @pessoa1
+/apps/api/src/modules/auth/             @pessoa1
+/apps/api/src/modules/users/            @pessoa1
+/apps/api/src/modules/workspaces/       @pessoa1
+/apps/api/src/modules/projects/         @pessoa1
+/apps/api/src/modules/tasks/            @pessoa1
+/apps/web/src/app/                      @pessoa1
+/apps/web/src/components/ui/            @pessoa1
+/apps/web/src/features/tasks/           @pessoa1
+/docker-compose.yml                     @pessoa1
+/docs/                                  @pessoa1
+
+/apps/web/src/features/task-list/       @pessoa2
+/apps/web/src/features/kanban/          @pessoa3
+/apps/api/src/modules/subtasks/         @pessoa4
+/apps/api/src/modules/comments/         @pessoa4
+/apps/web/src/features/subtasks/        @pessoa4
+/apps/web/src/features/comments/        @pessoa4
+/apps/api/src/modules/notifications/    @pessoa5
+/apps/web/src/features/notifications/   @pessoa5
+/apps/web/src/features/calendar/        @pessoa6
+/apps/api/src/modules/attachments/      @pessoa7
+/apps/web/src/features/attachments/     @pessoa7
+/apps/api/src/modules/custom-fields/    @pessoa8
+/apps/web/src/features/custom-fields/   @pessoa8
+/apps/api/src/modules/dependencies/     @pessoa9
+/apps/web/src/features/dependencies/    @pessoa9
+/apps/web/src/features/gantt/           @pessoa9
+/apps/api/src/modules/time-tracking/    @pessoa10
+/apps/web/src/features/time-tracking/   @pessoa10

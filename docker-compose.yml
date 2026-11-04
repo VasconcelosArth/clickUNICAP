@@ -1,0 +1,98 @@
+# ClickUNICAP — infraestrutura local
+# Uso: cp .env.example .env && docker compose up -d
+# Documentação: docs/10-ambiente-local.md
+
+name: clickunicap
+
+services:
+  # Banco de desenvolvimento (dados persistem no volume pgdata)
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-clickunicap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-clickunicap}
+      POSTGRES_DB: ${POSTGRES_DB:-clickunicap}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Banco exclusivo dos testes e2e (em memória: rápido e sempre limpo)
+  postgres-test:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-clickunicap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-clickunicap}
+      POSTGRES_DB: ${POSTGRES_TEST_DB:-clickunicap_test}
+    ports:
+      - "${POSTGRES_TEST_PORT:-5433}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    # Configuração só para testes: desliga garantias de durabilidade para ganhar velocidade
+    command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Interface web para o banco: http://localhost:8080
+  adminer:
+    image: adminer:4
+    restart: unless-stopped
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ---- Perfil opcional "app": docker compose --profile app up ----
+  # Requer apps/api/Dockerfile e apps/web/Dockerfile (criados pela Pessoa 1).
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: dev
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-clickunicap}:${POSTGRES_PASSWORD:-clickunicap}@postgres:5432/${POSTGRES_DB:-clickunicap}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - ./apps/api/src:/app/apps/api/src
+      - ./packages/shared/src:/app/packages/shared/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: dev
+    environment:
+      VITE_API_PROXY_TARGET: http://api:3000
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+    volumes:
+      - ./apps/web/src:/app/apps/web/src
+      - ./packages/shared/src:/app/packages/shared/src
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

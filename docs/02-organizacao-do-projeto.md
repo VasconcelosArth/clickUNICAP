@@ -1,0 +1,126 @@
+# 02 — Organização do projeto e do time
+
+Este documento diz **quem faz o quê, em que ordem e como as partes se juntam**. O time tem 10 pessoas. A Pessoa 1
+constrói a base do sistema, as Pessoas 2 a 5 fazem o resto do MVP e as Pessoas 6 a 10 fazem a Fase 2.
+
+## Fases do produto
+
+| Fase | Objetivo | Conteúdo |
+|---|---|---|
+| **MVP** | Um time consegue organizar e acompanhar tarefas | Login, workspace, membros, projetos, tarefas, subtarefas, comentários, Lista, Kanban, filtros, notificações |
+| **Fase 2** | Recursos de gestão de projeto | Calendário, anexos, campos personalizados, dependências + Gantt, controle de tempo, automações |
+| **Fase 3** | Plataforma completa | Dashboards, docs, metas, chat, whiteboard, integrações, IA |
+
+## As 10 frentes
+
+Cada frente tem **um dono**. O dono é responsável pelo módulo no backend, pela feature no frontend, pelas
+tabelas e pelos testes da frente.
+
+| Pessoa | Frente | Módulo backend (`apps/api/src/modules/`) | Feature frontend (`apps/web/src/features/`) | Fase |
+|---|---|---|---|---|
+| 1 | **Base do sistema** | `auth`, `users`, `workspaces`, `projects`, `tasks` + `core/` | `auth`, `workspaces`, `projects`, `tasks` + `app/`, `components/ui` | MVP |
+| 2 | Lista, filtros e "Minhas tarefas" | usa `tasks` (adiciona filtros na query) | `task-list` | MVP |
+| 3 | Kanban | usa `tasks` (rota de mover/reordenar) | `kanban` | MVP |
+| 4 | Subtarefas e comentários | `subtasks`, `comments` | `subtasks`, `comments` | MVP |
+| 5 | Notificações | `notifications` | `notifications` | MVP |
+| 6 | Calendário | usa `tasks` | `calendar` | 2 |
+| 7 | Anexos | `attachments` | `attachments` | 2 |
+| 8 | Campos personalizados | `custom-fields` | `custom-fields` | 2 |
+| 9 | Dependências + Gantt | `dependencies` | `dependencies`, `gantt` | 2 |
+| 10 | Controle de tempo | `time-tracking` | `time-tracking` | 2 |
+
+### Detalhe da Pessoa 1 (base)
+
+A base é o que **todo mundo usa**, então ela vem primeiro e precisa de prazo curto.
+
+**Semana 1 (destrava o time):**
+- [ ] Monorepo configurado (`pnpm`, `apps/api`, `apps/web`, `packages/shared`), lint, format e CI.
+- [ ] `docker compose up` sobe o Postgres.
+- [ ] Schema Drizzle com as tabelas da base e a primeira migration.
+- [ ] `packages/shared` com os schemas Zod de `Task`, `Project`, `User` e enums.
+- [ ] API `/api/tasks` respondendo (pode ser com dados fixos) e documentada no Swagger.
+- [ ] Layout base do frontend (menu lateral, topo, rotas) e componentes de UI (`Button`, `Input`, `Modal`, `Select`).
+- [ ] Tela de detalhe da tarefa com os **slots** vazios (ver abaixo).
+
+**Semanas 2 e 3:**
+- [ ] Cadastro, login, logout, recuperar senha, perfil.
+- [ ] Workspace, convites, papéis.
+- [ ] CRUD real de projetos e tarefas.
+
+### Detalhe das outras frentes
+
+Escopo, critérios de aceite e dependências de cada frente estão no PDF de divisão
+(`MVP_ClickUp_Divisao_Atividades.pdf`) e devem virar issues no GitHub, uma por entregável.
+
+## Como as frentes ficam independentes
+
+Três mecanismos deixam cada pessoa trabalhar sem esperar as outras:
+
+### 1. O contrato compartilhado (`packages/shared`)
+
+Toda entidade tem um **schema Zod** em `packages/shared/src/schemas/`. Dele saem:
+- o tipo TypeScript, usado no backend e no frontend;
+- a validação do body no backend;
+- a validação de formulário no frontend;
+- os **dados falsos (mocks)** para quem ainda não tem a API pronta.
+
+Mudar um schema compartilhado exige um PR revisado pela Pessoa 1 e aviso no grupo.
+
+### 2. Mocks enquanto a API não existe
+
+Quem depende de uma rota que ainda não existe usa **MSW (Mock Service Worker)** no frontend, com handlers em
+`apps/web/src/features/<feature>/mocks/`. Quando a API real ficar pronta, basta desligar o mock. O código da
+feature não muda.
+
+### 3. Slots na tela de detalhe da tarefa
+
+A tela de detalhe da tarefa (da Pessoa 1) tem **espaços reservados**. Cada frente registra o seu componente
+sem editar o arquivo da base:
+
+| Slot | Quem preenche |
+|---|---|
+| `task-detail.main` | Subtarefas (4), Campos personalizados (8) |
+| `task-detail.activity` | Comentários (4) |
+| `task-detail.sidebar` | Controle de tempo (10), Dependências (9) |
+| `task-detail.attachments` | Anexos (7) |
+
+Como funciona está em [05 — Frontend](05-frontend-guia.md#slots-da-tela-de-tarefa).
+
+### 4. Eventos de domínio no backend
+
+Quando uma coisa acontece (tarefa atribuída, comentário com menção), o módulo **emite um evento** em vez
+de chamar o módulo de notificações diretamente. Assim a Pessoa 5 assina os eventos, e as Pessoas 1 e 4 não precisam
+conhecer o código dela. Ver [04 — Backend](04-backend-guia.md#eventos-de-domínio).
+
+## Backlog reserva
+
+Quem terminar a própria frente pega o primeiro item livre, **avisa no grupo** e abre a issue no seu nome:
+
+1. Automações simples (quando status = X, fazer Y)
+2. Tarefas recorrentes
+3. Templates de projeto e de tarefa
+4. Dashboard básico
+5. Docs ligados ao projeto
+6. Goals / metas
+7. Chat por projeto
+8. Whiteboard
+9. Integrações (Slack, Google Drive)
+10. IA (resumo de tarefa, gerar subtarefas)
+
+## Ritmo do time
+
+| Quando | O quê |
+|---|---|
+| Dia 1 | Reunião de contrato: todos leem estes docs e fecham o modelo de dados |
+| Toda semana, dia fixo | **Dia de integração**: todo mundo faz merge na `main` e testa o fluxo completo junto |
+| Diariamente (assíncrono) | Mensagem no grupo: o que fiz, o que vou fazer, se estou travado |
+| Ao terminar uma frente | Demo rápida para o grupo e puxar item do backlog reserva |
+
+## Riscos e como lidar
+
+| Risco | Plano |
+|---|---|
+| A base (Pessoa 1) atrasa | Todos seguem com MSW e mocks do `shared`. Quem terminar primeiro ajuda a Pessoa 1 |
+| Alguém muda o contrato sem avisar | O CI falha (tipos quebram). Toda mudança em `packages/shared` precisa de revisão da Pessoa 1 |
+| Dois mexendo no mesmo arquivo | Respeitar donos (arquivo `CODEOWNERS`). Na dúvida, perguntar antes |
+| Código gerado por IA fora do padrão | A revisão de PR checa o [checklist de IA](09-guia-ia.md#checklist-de-revisão-de-código-gerado-por-ia) |
