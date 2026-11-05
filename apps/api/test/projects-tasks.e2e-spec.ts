@@ -21,6 +21,18 @@ describe('Projetos e tarefas (e2e)', () => {
     await agent.get('/api/projects').expect(422);
   });
 
+  it('data impossível e caractere nulo → 422, não 500', async () => {
+    const { agent, workspace } = await registerUserWithWorkspace(app);
+    const project = await createProject(agent, workspace.id);
+    const tasksUrl = `/api/projects/${project.id}/tasks`;
+    const post = (body: object) => agent.post(tasksUrl).set('X-Workspace-Id', workspace.id).send(body);
+
+    await post({ title: 'x', dueDate: '2026-13-45' }).expect(422);
+    await post({ title: 'a\u0000b' }).expect(422);
+    await agent.get(`${tasksUrl}?dueFrom=2026-02-31`).set('X-Workspace-Id', workspace.id).expect(422);
+    await agent.get(tasksUrl).query({ search: 'a\u0000b' }).set('X-Workspace-Id', workspace.id).expect(422);
+  });
+
   it('projeto: cria, edita com PATCH vazio e arquiva (some da lista padrão)', async () => {
     const { agent, workspace } = await registerUserWithWorkspace(app);
     const h = { 'X-Workspace-Id': workspace.id };

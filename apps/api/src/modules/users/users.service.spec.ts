@@ -64,6 +64,20 @@ describe('UsersService', () => {
     });
   });
 
+  describe('create', () => {
+    const data = { name: 'Ana', email: 'ana@teste.com', passwordHash: 'h' };
+
+    it('devolve o usuário criado', async () => {
+      repo.insert.mockResolvedValue(row);
+      await expect(service.create(data)).resolves.toBe(row);
+    });
+
+    it('e-mail já existente no banco → EMAIL_TAKEN', async () => {
+      repo.insert.mockResolvedValue(undefined);
+      await expect(service.create(data)).rejects.toMatchObject({ code: 'EMAIL_TAKEN', statusCode: 409 });
+    });
+  });
+
   it('setPasswordHash lança NotFoundError para usuário inexistente', async () => {
     repo.update.mockResolvedValue(undefined);
     await expect(service.setPasswordHash('x', 'h')).rejects.toBeInstanceOf(NotFoundError);

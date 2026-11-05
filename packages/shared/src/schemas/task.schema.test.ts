@@ -21,6 +21,19 @@ describe('createTaskSchema', () => {
     expect(createTaskSchema.safeParse({ title: 'x', dueDate: '20/11/2026' }).success).toBe(false);
   });
 
+  it.each(['2026-13-45', '2026-02-31', '2025-02-29', '2026-00-10', '0000-01-01'])(
+    'rejeita a data impossível %s',
+    (dueDate) => {
+      const r = createTaskSchema.safeParse({ title: 'x', dueDate });
+      expect(r.success).toBe(false);
+      expect(r.error?.issues).toHaveLength(1);
+    },
+  );
+
+  it('aceita 29 de fevereiro em ano bissexto', () => {
+    expect(createTaskSchema.safeParse({ title: 'x', dueDate: '2028-02-29' }).success).toBe(true);
+  });
+
   it('rejeita início depois do prazo, apontando o campo startDate', () => {
     const r = createTaskSchema.safeParse({ title: 'x', startDate: '2026-11-21', dueDate: '2026-11-20' });
     expect(r.success).toBe(false);
@@ -28,7 +41,9 @@ describe('createTaskSchema', () => {
   });
 
   it('aceita início igual ao prazo', () => {
-    expect(createTaskSchema.safeParse({ title: 'x', startDate: '2026-11-20', dueDate: '2026-11-20' }).success).toBe(true);
+    expect(createTaskSchema.safeParse({ title: 'x', startDate: '2026-11-20', dueDate: '2026-11-20' }).success).toBe(
+      true,
+    );
   });
 });
 
@@ -44,7 +59,9 @@ describe('updateTaskSchema', () => {
 
 describe('moveTaskSchema', () => {
   it('exige status e aceita vizinhos nulos (coluna vazia)', () => {
-    expect(moveTaskSchema.parse({ status: 'done', beforeTaskId: null, afterTaskId: null })).toMatchObject({ status: 'done' });
+    expect(moveTaskSchema.parse({ status: 'done', beforeTaskId: null, afterTaskId: null })).toMatchObject({
+      status: 'done',
+    });
     expect(moveTaskSchema.safeParse({ beforeTaskId: null, afterTaskId: null }).success).toBe(false);
   });
 });

@@ -25,9 +25,9 @@ export class UsersRepository {
     return row;
   }
 
-  async insert(data: NewUserRow): Promise<UserRow> {
-    const [row] = await this.db.insert(users).values(data).returning();
-    if (!row) throw new Error('Falha ao inserir usuário');
+  /** Devolve undefined se o e-mail já existir, mesmo em cadastros simultâneos (a garantia é do índice único). */
+  async insert(data: NewUserRow): Promise<UserRow | undefined> {
+    const [row] = await this.db.insert(users).values(data).onConflictDoNothing({ target: users.email }).returning();
     return row;
   }
 

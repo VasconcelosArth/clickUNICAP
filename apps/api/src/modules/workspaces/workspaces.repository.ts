@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, eq, gt, isNull } from 'drizzle-orm';
+import { and, asc, count, eq, gt, inArray, isNull } from 'drizzle-orm';
 import type { MemberRole } from '@clickunicap/shared';
 import { DRIZZLE, type Database } from '@/core/database/database.module';
-import { users, workspaceInvites, workspaceMembers, workspaces } from '@/core/database/schema';
+import { projects, tasks, users, workspaceInvites, workspaceMembers, workspaces } from '@/core/database/schema';
 
 export type WorkspaceRow = typeof workspaces.$inferSelect;
 export type InviteRow = typeof workspaceInvites.$inferSelect;
@@ -112,10 +112,21 @@ export class WorkspacesRepository {
       .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)));
   }
 
+  /** Remove o membro e, na mesma transação, deixa sem responsável as tarefas dele neste workspace. */
   async removeMember(workspaceId: string, userId: string): Promise<void> {
-    await this.db
-      .delete(workspaceMembers)
-      .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)));
+    await this.db.transaction(async (tx) => {
+      const workspaceProjects = tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.workspaceId, workspaceId));
+      await tx
+        .update(tasks)
+        .set({ assigneeId: null })
+        .where(and(eq(tasks.assigneeId, userId), inArray(tasks.projectId, workspaceProjects)));
+      await tx
+        .delete(workspaceMembers)
+        .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)));
+    });
   }
 
   // ---------- convites ----------
@@ -142,7 +153,11 @@ export class WorkspacesRepository {
   }
 
   async findInviteByTokenHash(tokenHash: string): Promise<InviteRow | undefined> {
-    const [row] = await this.db.select().from(workspaceInvites).where(eq(workspaceInvites.tokenHash, tokenHash)).limit(1);
+    const [row] = await this.db
+      .select()
+      .from(workspaceInvites)
+      .where(eq(workspaceInvites.tokenHash, tokenHash))
+      .limit(1);
     return row;
   }
 

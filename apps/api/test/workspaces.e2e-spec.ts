@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { MailService } from '@/core/mail/mail.service';
 import { registerUser, registerUserWithWorkspace } from './utils/auth-helpers';
 import { createTestApp, resetDatabase } from './utils/create-test-app';
+import { createProject, createTask } from './utils/factories';
 
 describe('Workspaces (e2e)', () => {
   let app: INestApplication;
@@ -13,7 +14,11 @@ describe('Workspaces (e2e)', () => {
   afterAll(() => app.close());
 
   /** Convida `email` e devolve o token que foi no e-mail. */
-  async function inviteAndGetToken(agent: Awaited<ReturnType<typeof registerUser>>['agent'], wsId: string, email: string) {
+  async function inviteAndGetToken(
+    agent: Awaited<ReturnType<typeof registerUser>>['agent'],
+    wsId: string,
+    email: string,
+  ) {
     await agent.post(`/api/workspaces/${wsId}/invites`).send({ email }).expect(201);
     const mail = app.get(MailService).outbox.at(-1)!;
     return /token=([A-Za-z0-9_-]+)/.exec(mail.text)![1]!;
@@ -80,6 +85,35 @@ describe('Workspaces (e2e)', () => {
     await dono.delete(`/api/workspaces/${workspace.id}/members/${donoUser.id}`).expect(403);
     await bia.delete(`/api/workspaces/${workspace.id}/members/${biaUser.id}`).expect(204);
     await bia.get(`/api/workspaces/${workspace.id}`).expect(404);
+  });
+
+  it('membro removido deixa de ser responsável só nas tarefas deste workspace', async () => {
+    const { agent: dono, user: donoUser, workspace } = await registerUserWithWorkspace(app);
+    const token = await inviteAndGetToken(dono, workspace.id, 'bia@teste.com');
+    const { agent: bia, user: biaUser } = await registerUser(app, { email: 'bia@teste.com' });
+    await bia.post('/api/invites/accept').send({ token }).expect(200);
+    const biaWs = await bia.post('/api/workspaces').send({ name: 'Da Bia' }).expect(201);
+
+    const project = await createProject(dono, workspace.id);
+    const task = await createTask(dono, workspace.id, project.id, { assigneeId: biaUser.id });
+    const otherProject = await createProject(bia, biaWs.body.id);
+    const otherTask = await createTask(bia, biaWs.body.id, otherProject.id, { assigneeId: biaUser.id });
+
+    await dono.delete(`/api/workspaces/${workspace.id}/members/${biaUser.id}`).expect(204);
+
+    const after = await dono.get(`/api/tasks/${task.id}`).set('X-Workspace-Id', workspace.id).expect(200);
+    expect(after.body.assigneeId).toBeNull();
+    const untouched = await bia.get(`/api/tasks/${otherTask.id}`).set('X-Workspace-Id', biaWs.body.id).expect(200);
+    expect(untouched.body.assigneeId).toBe(biaUser.id);
+
+    // O admin consegue atribuir a tarefa a outro membro, mas não de volta a quem saiu.
+    const taskUrl = `/api/tasks/${task.id}`;
+    const reassign = (assigneeId: string) =>
+      dono.patch(taskUrl).set('X-Workspace-Id', workspace.id).send({ assigneeId });
+    const refused = await reassign(biaUser.id).expect(400);
+    expect(refused.body.error).toBe('INVALID_ASSIGNEE');
+    const reassigned = await reassign(donoUser.id).expect(200);
+    expect(reassigned.body.assigneeId).toBe(donoUser.id);
   });
 
   it('convidar quem já é membro → 409; revogar convite funciona', async () => {

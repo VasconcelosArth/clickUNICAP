@@ -13,6 +13,7 @@ import {
 } from '@clickunicap/shared';
 import { ACCESS_COOKIE, ACCESS_COOKIE_PATH, Public, REFRESH_COOKIE, REFRESH_COOKIE_PATH } from '@/core/auth';
 import { AppConfig } from '@/core/config';
+import { ConflictError } from '@/core/errors';
 import { ZodBody } from '@/core/swagger/zod-body';
 import { AuthService, type Session } from './auth.service';
 
@@ -51,7 +52,8 @@ export class AuthController {
     try {
       return this.respondWithSession(res, await this.auth.refresh(readCookie(req, REFRESH_COOKIE)));
     } catch (e) {
-      this.clearCookies(res);
+      // No 409 outra aba acabou de renovar: apagar os cookies derrubaria a sessão nova.
+      if (!(e instanceof ConflictError)) this.clearCookies(res);
       throw e;
     }
   }
