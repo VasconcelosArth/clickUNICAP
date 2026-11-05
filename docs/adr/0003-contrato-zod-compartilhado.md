@@ -18,7 +18,7 @@ O backend valida o body com o schema (`ZodValidationPipe`); o frontend valida fo
 |---|---|---|
 | class-validator (padrão do NestJS) | Integrado ao Nest | Não roda no front; tipos duplicados |
 | OpenAPI + geração de client | Contrato formal | Mais ferramentas, passo de geração, mais lento para iterar |
-| **Zod compartilhado** | Uma fonte da verdade, roda nos dois lados | Swagger precisa do `nestjs-zod` para documentar |
+| **Zod compartilhado** | Uma fonte da verdade, roda nos dois lados | Swagger precisa converter o schema para documentar (`zod-to-json-schema`, em `core/swagger/zod-body.ts`) |
 
 ## Consequências
 - Mudanças em `packages/shared` exigem revisão da Pessoa 1 (definido no `CODEOWNERS`).

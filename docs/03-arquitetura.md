@@ -65,13 +65,14 @@ clickUNICAP/
     └── shared/               # contrato: schemas Zod, tipos, enums, constantes
         └── src/
             ├── schemas/      # task.schema.ts, project.schema.ts, ...
-            ├── enums/        # task-status.ts, task-priority.ts, member-role.ts
+            ├── enums/        # index.ts: status, prioridade, papel e seus rótulos em português
             └── index.ts
 ```
 
 ## Regras de dependência
 
-Quem pode importar quem. **Isso é verificado no lint** (`eslint-plugin-boundaries` / `import/no-restricted-paths`).
+Quem pode importar quem. No backend, **isso é verificado no lint** (`no-restricted-imports` em `eslint.config.mjs`).
+As regras do frontend entram no lint junto com o `apps/web`, na Etapa 2.
 
 ```
 packages/shared   ← não importa nada do projeto (só zod)
@@ -142,13 +143,13 @@ features/<x>  ✗  features/<y>   (features não se importam; compõem-se no app
 | JSON em camelCase | `{ "dueDate": "2026-11-20" }` (o banco é snake_case; o Drizzle converte) |
 | Datas em ISO 8601 UTC | `"2026-11-04T18:30:00.000Z"` |
 | IDs são UUID | `"3f2a9c1e-..."` |
-| Paginação por cursor nas listas grandes | `?limit=50&cursor=<id>` → `{ data, nextCursor }` |
+| Paginação por cursor nas listas grandes (**planejada**: os schemas estão no `shared`, mas nenhuma rota atual pagina) | `?limit=50&cursor=<id>` → `{ data, nextCursor }` |
 | Erro padrão | `{ "statusCode": 422, "error": "VALIDATION_ERROR", "message": "...", "details": [...] }` |
 | Documentação | Swagger em `http://localhost:3000/api/docs` |
 
 ## Observabilidade mínima
 
-- Logger estruturado (`nestjs-pino`), com um `requestId` por requisição.
+- Hoje: `Logger` do NestJS. **Planejado:** logger estruturado (`nestjs-pino`), com um `requestId` por requisição.
 - `GET /api/health` responde se a API e o banco estão no ar.
 - Nunca logar senha, token ou corpo de requisição de auth.
 

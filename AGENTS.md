@@ -58,7 +58,8 @@ pnpm --filter api db:migrate
 - Validação com `ZodValidationPipe(schemaDoShared)`. **Não use class-validator.**
 - Erros: lance as classes de `src/core/errors` (`NotFoundError`, `ForbiddenError`, `DomainError`…), nunca `HttpException` no service.
 - Módulos não importam o repository de outro módulo: usam o **service exportado** ou **eventos** (`src/core/events`).
-- Transações com `@Transactional()` (`@nestjs-cls/transactional`).
+- Transações: um método do repository com `this.db.transaction(...)` ([padrão atual](docs/04-backend-guia.md#transações)).
+- Swagger: `@ZodBody(schema)` no body e `@ZodResponse(schema)` na resposta de toda rota que devolve corpo.
 - Schema Drizzle em `src/core/database/schema/<dominio>.ts`; migrations geradas, revisadas, **nunca editadas** depois do merge.
 
 ### Frontend (`apps/web`) — detalhes em [`docs/05-frontend-guia.md`](docs/05-frontend-guia.md)

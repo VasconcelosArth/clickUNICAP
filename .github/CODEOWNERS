@@ -1,19 +1,22 @@
-# Substitua @pessoaN pelo usuário do GitHub de cada integrante.
+# Substitua @pessoaN pelo usuário do GitHub de cada integrante (a Pessoa 1 já está preenchida).
 # O dono é chamado automaticamente para revisar PRs que mexem nos seus arquivos.
 
 # Base e contrato (Pessoa 1)
-/packages/shared/                       @pessoa1
-/apps/api/src/core/                     @pessoa1
-/apps/api/src/modules/auth/             @pessoa1
-/apps/api/src/modules/users/            @pessoa1
-/apps/api/src/modules/workspaces/       @pessoa1
-/apps/api/src/modules/projects/         @pessoa1
-/apps/api/src/modules/tasks/            @pessoa1
-/apps/web/src/app/                      @pessoa1
-/apps/web/src/components/ui/            @pessoa1
-/apps/web/src/features/tasks/           @pessoa1
-/docker-compose.yml                     @pessoa1
-/docs/                                  @pessoa1
+/packages/shared/                       @constantino2710
+/apps/api/src/core/                     @constantino2710
+/apps/api/src/modules/auth/             @constantino2710
+/apps/api/src/modules/users/            @constantino2710
+/apps/api/src/modules/workspaces/       @constantino2710
+/apps/api/src/modules/projects/         @constantino2710
+/apps/api/src/modules/tasks/            @constantino2710
+/apps/web/src/app/                      @constantino2710
+/apps/web/src/components/ui/            @constantino2710
+/apps/web/src/features/auth/            @constantino2710
+/apps/web/src/features/workspaces/      @constantino2710
+/apps/web/src/features/projects/        @constantino2710
+/apps/web/src/features/tasks/           @constantino2710
+/docker-compose.yml                     @constantino2710
+/docs/                                  @constantino2710
 
 /apps/web/src/features/task-list/       @pessoa2
 /apps/web/src/features/kanban/          @pessoa3
