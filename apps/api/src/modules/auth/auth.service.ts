@@ -41,6 +41,7 @@ const refreshInProgress = () =>
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger('Auth');
+  private dummyHash?: Promise<string>;
 
   constructor(
     private readonly users: UsersService,
@@ -65,9 +66,10 @@ export class AuthService {
 
   async login(input: LoginInput): Promise<Session> {
     const user = await this.users.findByEmailWithPassword(input.email);
-    if (!user || !(await this.hasher.verify(user.passwordHash, input.password))) {
-      throw new UnauthenticatedError(INVALID_CREDENTIALS);
-    }
+    // Sem conta, a senha é conferida do mesmo jeito: o tempo de resposta não pode revelar se o e-mail existe.
+    const passwordHash = user?.passwordHash ?? (await this.getDummyHash());
+    const passwordMatches = await this.hasher.verify(passwordHash, input.password);
+    if (!user || !passwordMatches) throw new UnauthenticatedError(INVALID_CREDENTIALS);
     return this.issueSession(user);
   }
 
@@ -140,6 +142,12 @@ export class AuthService {
   }
 
   // ---------- internos ----------
+
+  /** Hash de uma senha aleatória, criado uma vez só. Nunca confere com o que alguém digitar. */
+  private getDummyHash(): Promise<string> {
+    this.dummyHash ??= this.hasher.hash(generateOpaqueToken().raw);
+    return this.dummyHash;
+  }
 
   private issueSession(row: UserRow): Promise<Session> {
     return this.issueSessionForDto(toUserDto(row));

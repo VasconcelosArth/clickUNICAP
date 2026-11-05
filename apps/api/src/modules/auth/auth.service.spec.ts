@@ -117,6 +117,15 @@ describe('AuthService', () => {
       expect(saved.tokenHash).not.toBe(session.refreshToken);
     });
 
+    it('e-mail inexistente também passa pela conferência de senha (mesmo tempo de resposta)', async () => {
+      users.findByEmailWithPassword.mockResolvedValue(undefined);
+      await expect(service.login({ email: 'ninguem@teste.com', password: 'x' })).rejects.toBeInstanceOf(
+        UnauthenticatedError,
+      );
+      expect(hasher.verify).toHaveBeenCalledTimes(1);
+      expect(repo.insertRefreshToken).not.toHaveBeenCalled();
+    });
+
     it('refresh expira em 7 dias e access em 15 minutos (valores do .env)', async () => {
       users.findByEmailWithPassword.mockResolvedValue(userRow);
       const before = Date.now();
