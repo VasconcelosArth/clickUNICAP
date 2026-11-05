@@ -52,6 +52,24 @@ describe('Projetos e tarefas (e2e)', () => {
     await agent.post(`/api/projects/${p.id}/tasks`).set(h).send({ title: 'x' }).expect(201);
   });
 
+  it('projeto arquivado é somente leitura: tarefa só muda depois de desarquivar', async () => {
+    const { agent, workspace } = await registerUserWithWorkspace(app);
+    const h = { 'X-Workspace-Id': workspace.id };
+    const p = await createProject(agent, workspace.id);
+    const t = await createTask(agent, workspace.id, p.id);
+    await agent.post(`/api/projects/${p.id}/archive`).set(h).expect(200);
+
+    const refused = await agent.patch(`/api/tasks/${t.id}`).set(h).send({ title: 'mudou' }).expect(409);
+    expect(refused.body.error).toBe('PROJECT_ARCHIVED');
+    await agent.delete(`/api/tasks/${t.id}`).set(h).expect(409);
+    await agent.get(`/api/tasks/${t.id}`).set(h).expect(200);
+    await agent.get(`/api/projects/${p.id}/tasks`).set(h).expect(200);
+
+    await agent.post(`/api/projects/${p.id}/unarchive`).set(h).expect(200);
+    await agent.patch(`/api/tasks/${t.id}`).set(h).send({ title: 'mudou' }).expect(200);
+    await agent.delete(`/api/tasks/${t.id}`).set(h).expect(204);
+  });
+
   it('ISOLAMENTO: membro de outro workspace recebe 404 em projeto e tarefa alheios', async () => {
     const a = await registerUserWithWorkspace(app, 'A');
     const b = await registerUserWithWorkspace(app, 'B');

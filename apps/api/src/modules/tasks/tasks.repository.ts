@@ -52,21 +52,32 @@ export class TasksRepository {
   }
 
   /** Maior posição da coluna, ou null se ela estiver vazia. */
-  async maxPosition(projectId: string, status: TaskStatus): Promise<number | null> {
+  async maxPosition(workspaceId: string, projectId: string, status: TaskStatus): Promise<number | null> {
     const [row] = await this.db
       .select({ value: max(tasks.position) })
       .from(tasks)
-      .where(and(eq(tasks.projectId, projectId), eq(tasks.status, status)));
+      .where(and(this.inWorkspace(workspaceId), eq(tasks.projectId, projectId), eq(tasks.status, status)));
     return row?.value ?? null;
   }
 
-  /** Só chamar depois de confirmar o workspace com findById. */
-  async update(id: string, data: Partial<NewTaskRow>): Promise<TaskRow | undefined> {
-    const [row] = await this.db.update(tasks).set(data).where(eq(tasks.id, id)).returning();
+  async update(workspaceId: string, id: string, data: Partial<NewTaskRow>): Promise<TaskRow | undefined> {
+    const [row] = await this.db
+      .update(tasks)
+      .set(data)
+      .where(and(this.inWorkspace(workspaceId), eq(tasks.id, id)))
+      .returning();
     return row;
   }
 
-  async delete(id: string): Promise<void> {
-    await this.db.delete(tasks).where(eq(tasks.id, id));
+  async delete(workspaceId: string, id: string): Promise<void> {
+    await this.db.delete(tasks).where(and(this.inWorkspace(workspaceId), eq(tasks.id, id)));
+  }
+
+  /** Escopo para os comandos sem join: a tarefa precisa estar num projeto deste workspace. */
+  private inWorkspace(workspaceId: string): SQL {
+    return inArray(
+      tasks.projectId,
+      this.db.select({ id: projects.id }).from(projects).where(eq(projects.workspaceId, workspaceId)),
+    );
   }
 }
