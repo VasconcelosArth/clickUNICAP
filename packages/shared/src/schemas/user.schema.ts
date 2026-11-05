@@ -11,6 +11,10 @@ export const userSchema = z.object({
 });
 export type User = z.infer<typeof userSchema>;
 
+/** Resposta de cadastro, login e refresh. Os tokens vão só nos cookies. */
+export const sessionResponseSchema = z.object({ user: userSchema });
+export type SessionResponse = z.infer<typeof sessionResponseSchema>;
+
 const passwordSchema = z
   .string()
   .min(8, 'A senha precisa ter pelo menos 8 caracteres')

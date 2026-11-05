@@ -1,8 +1,10 @@
 import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { z } from 'zod';
 import {
   createProjectSchema,
   listProjectsQuerySchema,
+  projectSchema,
   updateProjectSchema,
   type CreateProjectInput,
   type ListProjectsQuery,
@@ -11,7 +13,7 @@ import {
 import { CurrentUser, type AuthUser } from '@/core/auth';
 import { CurrentWorkspace, Roles, RolesGuard, WorkspaceMemberGuard } from '@/core/guards';
 import { ZodValidationPipe } from '@/core/pipes/zod-validation.pipe';
-import { ZodBody } from '@/core/swagger/zod-body';
+import { ZodBody, ZodResponse } from '@/core/swagger/zod-body';
 import { ProjectsService } from './projects.service';
 
 /** /api/projects — o workspace vem do header X-Workspace-Id. */
@@ -22,6 +24,7 @@ export class ProjectsController {
   constructor(private readonly service: ProjectsService) {}
 
   @Post()
+  @ZodResponse(projectSchema, 201)
   create(
     @CurrentUser() user: AuthUser,
     @CurrentWorkspace() workspaceId: string,
@@ -31,6 +34,7 @@ export class ProjectsController {
   }
 
   @Get()
+  @ZodResponse(z.array(projectSchema))
   list(
     @CurrentWorkspace() workspaceId: string,
     @Query(new ZodValidationPipe(listProjectsQuerySchema)) query: ListProjectsQuery,
@@ -39,11 +43,13 @@ export class ProjectsController {
   }
 
   @Get(':id')
+  @ZodResponse(projectSchema)
   get(@CurrentWorkspace() workspaceId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.get(workspaceId, id);
   }
 
   @Patch(':id')
+  @ZodResponse(projectSchema)
   update(
     @CurrentWorkspace() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -56,6 +62,7 @@ export class ProjectsController {
   @HttpCode(200)
   @UseGuards(RolesGuard)
   @Roles('admin')
+  @ZodResponse(projectSchema)
   archive(@CurrentWorkspace() workspaceId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.archive(workspaceId, id);
   }
@@ -64,6 +71,7 @@ export class ProjectsController {
   @HttpCode(200)
   @UseGuards(RolesGuard)
   @Roles('admin')
+  @ZodResponse(projectSchema)
   unarchive(@CurrentWorkspace() workspaceId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.unarchive(workspaceId, id);
   }

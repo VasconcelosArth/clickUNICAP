@@ -39,3 +39,10 @@ export const apiErrorSchema = z.object({
   details: z.unknown().optional(),
 });
 export type ApiErrorBody = z.infer<typeof apiErrorSchema>;
+
+/** Resposta de GET /api/health. */
+export const healthSchema = z.object({
+  status: z.enum(['ok', 'degraded']),
+  database: z.enum(['up', 'down']),
+});
+export type Health = z.infer<typeof healthSchema>;
