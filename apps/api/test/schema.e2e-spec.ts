@@ -43,7 +43,7 @@ describe('Regras do banco (e2e)', () => {
     const { task } = await seedTask();
     await expect(
       db.execute(sql`update tasks set start_date = '2026-12-02', due_date = '2026-12-01' where id = ${task.id}`),
-    ).rejects.toThrow(/tasks_start_before_due/);
+    ).rejects.toMatchObject({ cause: { constraint: 'tasks_start_before_due' } });
   });
 
   it('permite só 1 timer ativo por usuário', async () => {
