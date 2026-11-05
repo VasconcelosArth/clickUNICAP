@@ -1,10 +1,15 @@
 import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { z } from 'zod';
 import {
   acceptInviteSchema,
   createWorkspaceSchema,
   inviteMemberSchema,
+  memberWithUserSchema,
+  myWorkspaceSchema,
   updateMemberRoleSchema,
   updateWorkspaceSchema,
+  workspaceInviteSchema,
+  workspaceSchema,
   type AcceptInviteInput,
   type CreateWorkspaceInput,
   type InviteMemberInput,
@@ -13,7 +18,7 @@ import {
 } from '@clickunicap/shared';
 import { CurrentUser, type AuthUser } from '@/core/auth';
 import { CurrentMembership, Roles, RolesGuard, WorkspaceMemberGuard, type WorkspaceContext } from '@/core/guards';
-import { ZodBody } from '@/core/swagger/zod-body';
+import { ZodBody, ZodResponse } from '@/core/swagger/zod-body';
 import { WorkspacesService } from './workspaces.service';
 
 /**
@@ -26,18 +31,21 @@ export class WorkspacesController {
 
   /** POST /api/workspaces — quem cria vira dono e admin */
   @Post()
+  @ZodResponse(myWorkspaceSchema, 201)
   create(@CurrentUser() user: AuthUser, @ZodBody(createWorkspaceSchema) body: CreateWorkspaceInput) {
     return this.service.create(user, body);
   }
 
   /** GET /api/workspaces — workspaces de que sou membro, com o meu papel */
   @Get()
+  @ZodResponse(z.array(myWorkspaceSchema))
   listMine(@CurrentUser() user: AuthUser) {
     return this.service.listMine(user);
   }
 
   @Get(':workspaceId')
   @UseGuards(WorkspaceMemberGuard)
+  @ZodResponse(myWorkspaceSchema)
   get(@CurrentMembership() ws: WorkspaceContext) {
     return this.service.get(ws);
   }
@@ -45,6 +53,7 @@ export class WorkspacesController {
   @Patch(':workspaceId')
   @UseGuards(WorkspaceMemberGuard, RolesGuard)
   @Roles('admin')
+  @ZodResponse(workspaceSchema)
   rename(@CurrentMembership() ws: WorkspaceContext, @ZodBody(updateWorkspaceSchema) body: UpdateWorkspaceInput) {
     return this.service.rename(ws, body);
   }
@@ -61,6 +70,7 @@ export class WorkspacesController {
 
   @Get(':workspaceId/members')
   @UseGuards(WorkspaceMemberGuard)
+  @ZodResponse(z.array(memberWithUserSchema))
   listMembers(@CurrentMembership() ws: WorkspaceContext) {
     return this.service.listMembers(ws);
   }
@@ -94,6 +104,7 @@ export class WorkspacesController {
   @Post(':workspaceId/invites')
   @UseGuards(WorkspaceMemberGuard, RolesGuard)
   @Roles('admin')
+  @ZodResponse(workspaceInviteSchema, 201)
   invite(
     @CurrentUser() user: AuthUser,
     @CurrentMembership() ws: WorkspaceContext,
@@ -105,6 +116,7 @@ export class WorkspacesController {
   @Get(':workspaceId/invites')
   @UseGuards(WorkspaceMemberGuard, RolesGuard)
   @Roles('admin')
+  @ZodResponse(z.array(workspaceInviteSchema))
   listInvites(@CurrentMembership() ws: WorkspaceContext) {
     return this.service.listInvites(ws);
   }
@@ -125,6 +137,7 @@ export class InvitesController {
 
   @Post('accept')
   @HttpCode(200)
+  @ZodResponse(myWorkspaceSchema)
   accept(@CurrentUser() user: AuthUser, @ZodBody(acceptInviteSchema) body: AcceptInviteInput) {
     return this.service.acceptInvite(user, body);
   }

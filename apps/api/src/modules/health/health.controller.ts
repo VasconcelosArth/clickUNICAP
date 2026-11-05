@@ -1,7 +1,9 @@
 import { Controller, Get, HttpCode, Inject } from '@nestjs/common';
+import { healthSchema } from '@clickunicap/shared';
 import { sql } from 'drizzle-orm';
 import { Public } from '@/core/auth';
 import { DRIZZLE, type Database } from '@/core/database/database.module';
+import { ZodResponse } from '@/core/swagger/zod-body';
 
 /** GET /api/health — usado por quem sobe o ambiente e por monitoramento. */
 @Public()
@@ -11,6 +13,7 @@ export class HealthController {
 
   @Get()
   @HttpCode(200)
+  @ZodResponse(healthSchema)
   async check() {
     const database = await this.db
       .execute(sql`select 1`)

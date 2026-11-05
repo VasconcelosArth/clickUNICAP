@@ -6,6 +6,7 @@ import {
   loginSchema,
   registerSchema,
   resetPasswordSchema,
+  sessionResponseSchema,
   type ForgotPasswordInput,
   type LoginInput,
   type RegisterInput,
@@ -14,7 +15,7 @@ import {
 import { ACCESS_COOKIE, ACCESS_COOKIE_PATH, Public, REFRESH_COOKIE, REFRESH_COOKIE_PATH } from '@/core/auth';
 import { AppConfig } from '@/core/config';
 import { ConflictError } from '@/core/errors';
-import { ZodBody } from '@/core/swagger/zod-body';
+import { ZodBody, ZodResponse } from '@/core/swagger/zod-body';
 import { AuthService, type Session } from './auth.service';
 
 /**
@@ -33,6 +34,7 @@ export class AuthController {
   /** POST /api/auth/register → 201 { user } + cookies */
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ZodResponse(sessionResponseSchema, 201)
   async register(@ZodBody(registerSchema) body: RegisterInput, @Res({ passthrough: true }) res: Response) {
     return this.respondWithSession(res, await this.auth.register(body));
   }
@@ -41,6 +43,7 @@ export class AuthController {
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60_000 } }) // contra força bruta de senha
   @HttpCode(200)
+  @ZodResponse(sessionResponseSchema)
   async login(@ZodBody(loginSchema) body: LoginInput, @Res({ passthrough: true }) res: Response) {
     return this.respondWithSession(res, await this.auth.login(body));
   }
@@ -48,6 +51,7 @@ export class AuthController {
   /** POST /api/auth/refresh → 200 { user } + cookies novos (o refresh antigo é revogado) */
   @Post('refresh')
   @HttpCode(200)
+  @ZodResponse(sessionResponseSchema)
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     try {
       return this.respondWithSession(res, await this.auth.refresh(readCookie(req, REFRESH_COOKIE)));

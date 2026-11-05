@@ -1,8 +1,10 @@
 import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { z } from 'zod';
 import {
   createTaskSchema,
   taskFiltersSchema,
+  taskSchema,
   updateTaskSchema,
   type CreateTaskInput,
   type TaskFilters,
@@ -11,7 +13,7 @@ import {
 import { CurrentUser, type AuthUser } from '@/core/auth';
 import { CurrentWorkspace, WorkspaceMemberGuard } from '@/core/guards';
 import { ZodValidationPipe } from '@/core/pipes/zod-validation.pipe';
-import { ZodBody } from '@/core/swagger/zod-body';
+import { ZodBody, ZodResponse } from '@/core/swagger/zod-body';
 import { TasksService } from './tasks.service';
 
 /** /api/projects/:projectId/tasks — criar e listar. */
@@ -22,6 +24,7 @@ export class ProjectTasksController {
   constructor(private readonly service: TasksService) {}
 
   @Post()
+  @ZodResponse(taskSchema, 201)
   create(
     @CurrentUser() user: AuthUser,
     @CurrentWorkspace() workspaceId: string,
@@ -32,6 +35,7 @@ export class ProjectTasksController {
   }
 
   @Get()
+  @ZodResponse(z.array(taskSchema))
   list(
     @CurrentWorkspace() workspaceId: string,
     @Param('projectId', ParseUUIDPipe) projectId: string,
@@ -49,11 +53,13 @@ export class TasksController {
   constructor(private readonly service: TasksService) {}
 
   @Get(':id')
+  @ZodResponse(taskSchema)
   get(@CurrentWorkspace() workspaceId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.get(workspaceId, id);
   }
 
   @Patch(':id')
+  @ZodResponse(taskSchema)
   update(
     @CurrentUser() user: AuthUser,
     @CurrentWorkspace() workspaceId: string,
