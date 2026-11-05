@@ -37,9 +37,9 @@ apps/api/
 │       ├── notifications/
 │       └── ...
 ├── test/                           # testes e2e (Supertest + banco de teste)
-│   ├── setup-e2e.ts
-│   ├── factories/                  # criam usuários, workspaces, tarefas para os testes
-│   └── tasks.e2e-spec.ts
+│   ├── global-setup.ts             # aponta para o banco de teste e aplica as migrations
+│   ├── utils/                      # create-test-app, auth-helpers e factories
+│   └── projects-tasks.e2e-spec.ts
 ├── drizzle.config.ts
 └── package.json
 ```
@@ -361,14 +361,16 @@ Todas pedem o header `X-Workspace-Id`.
 |---|---|
 | `POST /api/projects` · `GET /api/projects?includeArchived=true` | Cria / lista. Arquivados só aparecem com o parâmetro |
 | `GET` · `PATCH /api/projects/:id` | Ver / editar |
-| `POST /api/projects/:id/archive` · `/unarchive` | Só admin. Projetos não são apagados |
-| `POST /api/projects/:projectId/tasks` | Cria no fim da coluna. Recusa projeto arquivado (`PROJECT_ARCHIVED`) |
+| `POST /api/projects/:id/archive` · `/unarchive` | Só admin. Projetos não são apagados. Arquivado é **somente leitura** para as tarefas |
+| `POST /api/projects/:projectId/tasks` | Cria no fim da coluna. Recusa projeto arquivado (`409 PROJECT_ARCHIVED`) |
 | `GET /api/projects/:projectId/tasks` | Filtros: `status`, `priority`, `assigneeId`, `dueFrom`, `dueTo`, `search` |
-| `GET` · `PATCH` · `DELETE /api/tasks/:id` | Mudar o status leva ao fim da nova coluna e ajusta `completedAt` |
+| `GET` · `PATCH` · `DELETE /api/tasks/:id` | Mudar o status leva ao fim da nova coluna e ajusta `completedAt`. `PATCH` e `DELETE` recusam projeto arquivado (`409 PROJECT_ARCHIVED`) |
 
+Quem escrever em tarefas (ex.: a rota de mover da Pessoa 3) segue a mesma regra de projeto arquivado.
 Outros módulos usam `TasksService.findOne(workspaceId, taskId)`, que devolve `null` fora do workspace.
 Eventos já emitidos: `task.assigned` e `task.status_changed`. Ainda não há ouvinte: a Pessoa 5 assina com `@OnEvent`.
-Para o body aparecer no Swagger, valide com `@ZodBody(schema)` de `core/swagger/zod-body.ts`.
+`task.due_soon` está no catálogo, mas nada o emite ainda: depende de um agendador, a combinar com a Pessoa 5.
+Para o Swagger, use `@ZodBody(schema)` no body e `@ZodResponse(schema)` na resposta (`core/swagger/zod-body.ts`).
 Em testes e2e, use `createProject` e `createTask` de `test/utils/factories.ts`.
 
 ### Rotas de workspaces (já implementadas)
@@ -454,8 +456,9 @@ Nunca use `process.env.X` fora do `core/config`.
 
 ## Swagger
 
-Toda rota aparece em `/api/docs`. Use `@ApiTags`, e para os schemas Zod use `nestjs-zod` (`createZodDto`) para
-gerar a documentação a partir do mesmo schema.
+Toda rota aparece em `/api/docs`. Use `@ZodBody(schema)` no body e `@ZodResponse(schema)` na resposta, para gerar a
+documentação a partir do mesmo schema do `shared`. O teste `test/swagger.e2e-spec.ts` falha se uma rota com corpo ficar
+sem o formato da resposta.
 
 ## Checklist do PR de backend
 

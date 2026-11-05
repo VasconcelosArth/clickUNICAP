@@ -87,7 +87,7 @@ tasks
 ```
 
 > **Status em inglês no banco e na API** (`todo`, `in_progress`, `done`). A tela mostra "A fazer",
-> "Em andamento", "Concluído" pelo mapa de rótulos em `packages/shared/src/enums/task-status.ts`.
+> "Em andamento", "Concluído" pelo mapa de rótulos `TASK_STATUS_LABELS`, em `packages/shared/src/enums/index.ts`.
 
 ### MVP: outras frentes
 
@@ -156,7 +156,8 @@ O teste `schema.spec.ts` falha se uma tabela sumir, se uma coluna fugir do snake
 
 Usamos **posição fracionária**: ao soltar um cartão entre A (posição 1) e B (posição 2), o novo cartão fica em 1.5.
 Assim, mover um cartão atualiza **uma linha só**. Quando a diferença entre duas posições ficar menor que `1e-6`, o
-service renumera a coluna (1, 2, 3…). Regra implementada e testada em `modules/tasks/utils/position.ts`.
+service renumera a coluna (1, 2, 3…). **A implementar** pela Pessoa 3, junto com a rota de mover, em
+`modules/tasks/utils/position.ts`. Hoje as tarefas só entram no fim da coluna.
 
 ## Fluxo de migrations
 
