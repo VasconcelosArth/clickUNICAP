@@ -2,6 +2,8 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
+const noFrontend = { group: ['**/apps/web/**'], message: 'A API não importa o frontend.' };
+
 export default tseslint.config(
   { ignores: ['**/dist/**', '**/coverage/**', '**/node_modules/**', '**/migrations/**'] },
   js.configs.recommended,
@@ -18,13 +20,41 @@ export default tseslint.config(
     // Fronteira: o backend nunca importa o frontend e vice-versa
     files: ['apps/api/**/*.ts'],
     rules: {
-      'no-restricted-imports': ['error', { patterns: [{ group: ['**/apps/web/**'], message: 'A API não importa o frontend.' }] }],
+      'no-restricted-imports': ['error', { patterns: [noFrontend] }],
+    },
+  },
+  {
+    // Fronteira: dentro do módulo o import é relativo, então o alias só aparece ao cruzar módulos
+    files: ['apps/api/src/modules/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            noFrontend,
+            { group: ['@/modules/*/*.repository'], message: 'Use o service exportado pelo módulo ou um evento.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Fronteira: o core é usado por todos e não conhece nenhum módulo
+    files: ['apps/api/src/core/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [noFrontend, { group: ['@/modules/**'], message: 'O core não importa módulos de negócio.' }] },
+      ],
     },
   },
   {
     // Arquivos de configuração em CommonJS
     files: ['**/*.config.js'],
-    languageOptions: { sourceType: 'commonjs', globals: { module: 'writable', require: 'readonly', __dirname: 'readonly' } },
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { module: 'writable', require: 'readonly', __dirname: 'readonly' },
+    },
   },
   {
     // Testes podem usar recursos mais soltos

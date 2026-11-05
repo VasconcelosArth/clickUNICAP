@@ -7,8 +7,7 @@ import { ConflictError, DomainError, UnauthenticatedError } from '@/core/errors'
 import { MailService } from '@/core/mail/mail.service';
 import { passwordResetEmail } from '@/core/mail/templates/password-reset.template';
 import { toUserDto } from '@/modules/users/users.mapper';
-import type { UserRow } from '@/modules/users/users.repository';
-import { UsersService } from '@/modules/users/users.service';
+import { type UserRow, UsersService } from '@/modules/users/users.service';
 import { AuthRepository } from './auth.repository';
 import { PasswordHasher } from './password-hasher';
 import { generateOpaqueToken, hashToken } from '@/core/auth/opaque-token';

@@ -4,6 +4,8 @@ import { ConflictError, NotFoundError } from '@/core/errors';
 import { toUserDto } from './users.mapper';
 import { type NewUserRow, type UserRow, UsersRepository } from './users.repository';
 
+export type { UserRow };
+
 /**
  * Regras de usuário. É EXPORTADO pelo UsersModule: outros módulos (auth, workspaces)
  * usam este service — nunca o UsersRepository diretamente.
