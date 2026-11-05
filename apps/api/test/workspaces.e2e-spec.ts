@@ -116,6 +116,19 @@ describe('Workspaces (e2e)', () => {
     expect(reassigned.body.assigneeId).toBe(donoUser.id);
   });
 
+  it('reconvidar substitui o convite: só o link novo funciona', async () => {
+    const { agent: dono, workspace } = await registerUserWithWorkspace(app);
+    const antigo = await inviteAndGetToken(dono, workspace.id, 'bia@teste.com');
+    const novo = await inviteAndGetToken(dono, workspace.id, 'bia@teste.com');
+
+    const pendentes = await dono.get(`/api/workspaces/${workspace.id}/invites`).expect(200);
+    expect(pendentes.body).toHaveLength(1);
+
+    const { agent: bia } = await registerUser(app, { email: 'bia@teste.com' });
+    await bia.post('/api/invites/accept').send({ token: antigo }).expect(400);
+    await bia.post('/api/invites/accept').send({ token: novo }).expect(200);
+  });
+
   it('convidar quem já é membro → 409; revogar convite funciona', async () => {
     const { agent: dono, user: donoUser, workspace } = await registerUserWithWorkspace(app);
     const res = await dono.post(`/api/workspaces/${workspace.id}/invites`).send({ email: donoUser.email }).expect(409);

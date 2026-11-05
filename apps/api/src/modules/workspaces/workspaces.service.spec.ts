@@ -32,11 +32,10 @@ describe('WorkspacesService', () => {
     addMember: jest.fn(),
     updateMemberRole: jest.fn(),
     removeMember: jest.fn(),
-    insertInvite: jest.fn(),
+    replacePendingInvite: jest.fn(),
     listPendingInvites: jest.fn(),
     findInviteByTokenHash: jest.fn(),
     deleteInvite: jest.fn(),
-    deletePendingInvitesForEmail: jest.fn(),
     acceptInvite: jest.fn(),
   };
   const users = { getProfile: jest.fn() };
@@ -145,15 +144,20 @@ describe('WorkspacesService', () => {
     beforeEach(() => {
       users.getProfile.mockResolvedValue({ id: OWNER, name: 'Dono' });
       repo.isMemberByEmail.mockResolvedValue(false);
-      repo.insertInvite.mockImplementation(async (data) => ({ id: 'i1', createdAt: now, acceptedAt: null, ...data }));
+      repo.replacePendingInvite.mockImplementation(async (data) => ({
+        id: 'i1',
+        createdAt: now,
+        acceptedAt: null,
+        ...data,
+      }));
     });
 
-    it('cria o convite (7 dias), descarta convites antigos do e-mail e envia o link', async () => {
+    it('cria o convite (7 dias) e envia o link', async () => {
       const before = Date.now();
       const invite = await service.invite(owner, asAdmin, { email: 'bia@teste.com', role: 'member' });
 
-      expect(repo.deletePendingInvitesForEmail).toHaveBeenCalledWith('w1', 'bia@teste.com');
-      const saved = repo.insertInvite.mock.calls[0][0];
+      const saved = repo.replacePendingInvite.mock.calls[0][0];
+      expect(saved).toMatchObject({ workspaceId: 'w1', email: 'bia@teste.com' });
       expect(saved.expiresAt.getTime() - before).toBeGreaterThanOrEqual(7 * 86_400_000 - 1000);
       expect(invite).not.toHaveProperty('tokenHash');
 
@@ -168,7 +172,7 @@ describe('WorkspacesService', () => {
       await expect(service.invite(owner, asAdmin, { email: 'bia@teste.com', role: 'member' })).rejects.toBeInstanceOf(
         ConflictError,
       );
-      expect(repo.insertInvite).not.toHaveBeenCalled();
+      expect(repo.replacePendingInvite).not.toHaveBeenCalled();
     });
 
     it('falha no envio do e-mail não derruba o convite', async () => {

@@ -131,10 +131,22 @@ export class WorkspacesRepository {
 
   // ---------- convites ----------
 
-  async insertInvite(data: typeof workspaceInvites.$inferInsert): Promise<InviteRow> {
-    const [row] = await this.db.insert(workspaceInvites).values(data).returning();
-    if (!row) throw new Error('Falha ao criar convite');
-    return row;
+  /** Cria o convite e descarta os pendentes do mesmo e-mail, numa transação: se falhar, o antigo continua valendo. */
+  async replacePendingInvite(data: typeof workspaceInvites.$inferInsert): Promise<InviteRow> {
+    return this.db.transaction(async (tx) => {
+      await tx
+        .delete(workspaceInvites)
+        .where(
+          and(
+            eq(workspaceInvites.workspaceId, data.workspaceId),
+            eq(workspaceInvites.email, data.email),
+            isNull(workspaceInvites.acceptedAt),
+          ),
+        );
+      const [row] = await tx.insert(workspaceInvites).values(data).returning();
+      if (!row) throw new Error('Falha ao criar convite');
+      return row;
+    });
   }
 
   /** Convites ainda válidos (não aceitos e não expirados). */
@@ -167,19 +179,6 @@ export class WorkspacesRepository {
       .where(and(eq(workspaceInvites.workspaceId, workspaceId), eq(workspaceInvites.id, inviteId)))
       .returning({ id: workspaceInvites.id });
     return rows.length > 0;
-  }
-
-  /** Ao reconvidar o mesmo e-mail, o convite antigo (ainda não aceito) é descartado. */
-  async deletePendingInvitesForEmail(workspaceId: string, email: string): Promise<void> {
-    await this.db
-      .delete(workspaceInvites)
-      .where(
-        and(
-          eq(workspaceInvites.workspaceId, workspaceId),
-          eq(workspaceInvites.email, email),
-          isNull(workspaceInvites.acceptedAt),
-        ),
-      );
   }
 
   /** Aceita o convite: vira membro e marca o convite, numa transação. */
