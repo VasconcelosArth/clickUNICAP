@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { UpdateProfileInput, User } from '@clickunicap/shared';
-import { NotFoundError } from '@/core/errors';
+import { ConflictError, NotFoundError } from '@/core/errors';
 import { toUserDto } from './users.mapper';
 import { type NewUserRow, type UserRow, UsersRepository } from './users.repository';
 
@@ -31,8 +31,10 @@ export class UsersService {
     return this.repo.findByEmail(email);
   }
 
-  create(data: Pick<NewUserRow, 'name' | 'email' | 'passwordHash'>): Promise<UserRow> {
-    return this.repo.insert(data);
+  async create(data: Pick<NewUserRow, 'name' | 'email' | 'passwordHash'>): Promise<UserRow> {
+    const row = await this.repo.insert(data);
+    if (!row) throw new ConflictError('Já existe uma conta com este e-mail', 'EMAIL_TAKEN');
+    return row;
   }
 
   async setPasswordHash(userId: string, passwordHash: string): Promise<void> {

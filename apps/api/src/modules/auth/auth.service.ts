@@ -23,13 +23,20 @@ export interface Session {
 }
 
 export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 hora
+/** Duas abas podem renovar a sessão quase juntas: nesse intervalo, reusar o token não é tratado como roubo. */
+export const REFRESH_REUSE_GRACE_MS = 10_000;
 const INVALID_CREDENTIALS = 'E-mail ou senha inválidos';
+const INVALID_RESET_TOKEN = 'Link de recuperação inválido ou expirado';
+
+const refreshInProgress = () =>
+  new ConflictError('A sessão acabou de ser renovada. Tente novamente.', 'REFRESH_IN_PROGRESS');
 
 /**
  * Regras de autenticação:
  * - access token JWT curto (JWT_ACCESS_TTL) + refresh token opaco longo (JWT_REFRESH_TTL), salvo como hash;
  * - ROTAÇÃO: cada refresh revoga o token usado e emite um novo;
  * - REUSO de um refresh já revogado = possível roubo → todas as sessões do usuário são encerradas;
+ * - exceção: até REFRESH_REUSE_GRACE_MS depois da revogação, o reuso recebe 409 REFRESH_IN_PROGRESS (várias abas);
  * - login e "esqueci a senha" nunca revelam se o e-mail existe.
  */
 @Injectable()
@@ -71,23 +78,24 @@ export class AuthService {
     if (!stored) throw new UnauthenticatedError('Sessão inválida. Faça login novamente.');
 
     if (stored.revokedAt) {
-      await this.repo.revokeAllRefreshTokens(stored.userId);
+      if (Date.now() - stored.revokedAt.getTime() < REFRESH_REUSE_GRACE_MS) throw refreshInProgress();
+      await this.repo.deleteAllRefreshTokens(stored.userId);
       throw new UnauthenticatedError('Sessão encerrada por segurança. Faça login novamente.');
     }
     if (stored.expiresAt <= new Date()) throw new UnauthenticatedError('Sessão expirada. Faça login novamente.');
 
-    await this.repo.revokeRefreshToken(stored.id);
     const user = await this.users.getProfile(stored.userId).catch(() => {
       throw new UnauthenticatedError();
     });
+    if (!(await this.repo.revokeRefreshToken(stored.id))) throw refreshInProgress();
     return this.issueSessionForDto(user);
   }
 
-  /** Revoga o refresh token atual. Idempotente: chamar sem sessão não é erro. */
+  /** Encerra a sessão atual. Idempotente: chamar sem sessão não é erro. */
   async logout(rawRefreshToken: string | undefined): Promise<void> {
     if (!rawRefreshToken) return;
     const stored = await this.repo.findRefreshToken(hashToken(rawRefreshToken));
-    if (stored && !stored.revokedAt) await this.repo.revokeRefreshToken(stored.id);
+    if (stored && !stored.revokedAt) await this.repo.deleteRefreshToken(stored.id);
   }
 
   /** Sempre "dá certo" para quem chama, exista ou não o e-mail (evita descobrir contas). */
@@ -121,11 +129,15 @@ export class AuthService {
   async resetPassword(input: ResetPasswordInput): Promise<void> {
     const stored = await this.repo.findPasswordResetToken(hashToken(input.token));
     if (!stored || stored.usedAt || stored.expiresAt <= new Date()) {
-      throw new DomainError('Link de recuperação inválido ou expirado', 'INVALID_RESET_TOKEN', 400);
+      throw new DomainError(INVALID_RESET_TOKEN, 'INVALID_RESET_TOKEN', 400);
     }
-    await this.users.setPasswordHash(stored.userId, await this.hasher.hash(input.password));
-    await this.repo.markPasswordResetTokenUsed(stored.id);
-    await this.repo.revokeAllRefreshTokens(stored.userId); // derruba sessões antigas
+    const passwordHash = await this.hasher.hash(input.password);
+    // Consome este link e os outros pendentes do usuário antes de trocar a senha: só um pedido simultâneo passa.
+    const consumed = await this.repo.consumePasswordResetTokens(stored.userId);
+    if (!consumed.includes(stored.id)) throw new DomainError(INVALID_RESET_TOKEN, 'INVALID_RESET_TOKEN', 400);
+
+    await this.users.setPasswordHash(stored.userId, passwordHash);
+    await this.repo.deleteAllRefreshTokens(stored.userId); // derruba sessões antigas
   }
 
   // ---------- internos ----------
@@ -138,7 +150,10 @@ export class AuthService {
     const { accessTtl, refreshTtl, accessSecret } = this.config.jwt;
     const accessMs = parseDuration(accessTtl);
     const payload: AccessTokenPayload = { sub: user.id, email: user.email };
-    const accessToken = await this.jwt.signAsync(payload, { secret: accessSecret, expiresIn: Math.floor(accessMs / 1000) });
+    const accessToken = await this.jwt.signAsync(payload, {
+      secret: accessSecret,
+      expiresIn: Math.floor(accessMs / 1000),
+    });
 
     const { raw, hash } = generateOpaqueToken();
     const refreshExpiresAt = new Date(Date.now() + parseDuration(refreshTtl));

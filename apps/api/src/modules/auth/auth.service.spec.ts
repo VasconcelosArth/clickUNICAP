@@ -6,7 +6,7 @@ import { MailService } from '@/core/mail/mail.service';
 import type { UserRow } from '@/modules/users/users.repository';
 import { UsersService } from '@/modules/users/users.service';
 import { AuthRepository, type PasswordResetTokenRow, type RefreshTokenRow } from './auth.repository';
-import { AuthService } from './auth.service';
+import { AuthService, REFRESH_REUSE_GRACE_MS } from './auth.service';
 import { PasswordHasher } from './password-hasher';
 import { hashToken } from '@/core/auth/opaque-token';
 
@@ -19,20 +19,32 @@ const userRow: UserRow = {
   createdAt: new Date('2026-11-04T12:00:00Z'),
   updatedAt: new Date('2026-11-04T12:00:00Z'),
 };
-const userDto = { id: 'u1', name: 'Ana', email: 'ana@teste.com', avatarUrl: null, createdAt: '2026-11-04T12:00:00.000Z' };
+const userDto = {
+  id: 'u1',
+  name: 'Ana',
+  email: 'ana@teste.com',
+  avatarUrl: null,
+  createdAt: '2026-11-04T12:00:00.000Z',
+};
 const future = () => new Date(Date.now() + 60_000);
 const past = () => new Date(Date.now() - 60_000);
 
 describe('AuthService', () => {
-  const users = { findByEmailWithPassword: jest.fn(), create: jest.fn(), getProfile: jest.fn(), setPasswordHash: jest.fn() };
+  const users = {
+    findByEmailWithPassword: jest.fn(),
+    create: jest.fn(),
+    getProfile: jest.fn(),
+    setPasswordHash: jest.fn(),
+  };
   const repo = {
     insertRefreshToken: jest.fn(),
     findRefreshToken: jest.fn(),
     revokeRefreshToken: jest.fn(),
-    revokeAllRefreshTokens: jest.fn(),
+    deleteRefreshToken: jest.fn(),
+    deleteAllRefreshTokens: jest.fn(),
     insertPasswordResetToken: jest.fn(),
     findPasswordResetToken: jest.fn(),
-    markPasswordResetTokenUsed: jest.fn(),
+    consumePasswordResetTokens: jest.fn(),
   };
   // Hasher falso e rápido: HASH(senha)
   const hasher = {
@@ -70,19 +82,25 @@ describe('AuthService', () => {
 
       const session = await service.register({ name: 'Ana', email: 'ana@teste.com', password: 'senha123' });
 
-      expect(users.create).toHaveBeenCalledWith({ name: 'Ana', email: 'ana@teste.com', passwordHash: 'HASH(senha123)' });
+      expect(users.create).toHaveBeenCalledWith({
+        name: 'Ana',
+        email: 'ana@teste.com',
+        passwordHash: 'HASH(senha123)',
+      });
       expect(session.user).toEqual(userDto);
       expect(session.user).not.toHaveProperty('passwordHash');
     });
 
     it('lança ConflictError EMAIL_TAKEN se o e-mail já existe', async () => {
       users.findByEmailWithPassword.mockResolvedValue(userRow);
-      await expect(service.register({ name: 'X', email: 'ana@teste.com', password: 'senha123' })).rejects.toMatchObject({
-        code: 'EMAIL_TAKEN',
-      });
-      await expect(service.register({ name: 'X', email: 'ana@teste.com', password: 'senha123' })).rejects.toBeInstanceOf(
-        ConflictError,
+      await expect(service.register({ name: 'X', email: 'ana@teste.com', password: 'senha123' })).rejects.toMatchObject(
+        {
+          code: 'EMAIL_TAKEN',
+        },
       );
+      await expect(
+        service.register({ name: 'X', email: 'ana@teste.com', password: 'senha123' }),
+      ).rejects.toBeInstanceOf(ConflictError);
       expect(users.create).not.toHaveBeenCalled();
     });
   });
@@ -133,6 +151,7 @@ describe('AuthService', () => {
 
     it('rotaciona: revoga o token usado e emite um novo', async () => {
       repo.findRefreshToken.mockResolvedValue(stored());
+      repo.revokeRefreshToken.mockResolvedValue(true);
       users.getProfile.mockResolvedValue(userDto);
 
       const session = await service.refresh('raw');
@@ -161,23 +180,38 @@ describe('AuthService', () => {
     it('REUSO de token revogado encerra TODAS as sessões do usuário', async () => {
       repo.findRefreshToken.mockResolvedValue(stored({ revokedAt: past() }));
       await expect(service.refresh('raw')).rejects.toThrow(/segurança/);
-      expect(repo.revokeAllRefreshTokens).toHaveBeenCalledWith('u1');
+      expect(repo.deleteAllRefreshTokens).toHaveBeenCalledWith('u1');
+      expect(repo.insertRefreshToken).not.toHaveBeenCalled();
+    });
+
+    it('token revogado há instantes → REFRESH_IN_PROGRESS, sem encerrar as sessões', async () => {
+      repo.findRefreshToken.mockResolvedValue(stored({ revokedAt: new Date(Date.now() - REFRESH_REUSE_GRACE_MS / 2) }));
+      await expect(service.refresh('raw')).rejects.toMatchObject({ code: 'REFRESH_IN_PROGRESS', statusCode: 409 });
+      expect(repo.deleteAllRefreshTokens).not.toHaveBeenCalled();
+      expect(repo.insertRefreshToken).not.toHaveBeenCalled();
+    });
+
+    it('quem perde a corrida pela revogação não ganha sessão nova', async () => {
+      repo.findRefreshToken.mockResolvedValue(stored());
+      repo.revokeRefreshToken.mockResolvedValue(false);
+      users.getProfile.mockResolvedValue(userDto);
+      await expect(service.refresh('raw')).rejects.toMatchObject({ code: 'REFRESH_IN_PROGRESS' });
       expect(repo.insertRefreshToken).not.toHaveBeenCalled();
     });
   });
 
   describe('logout', () => {
-    it('revoga o refresh token ativo', async () => {
+    it('encerra a sessão do refresh token ativo', async () => {
       repo.findRefreshToken.mockResolvedValue({ id: 'rt1', revokedAt: null });
       await service.logout('raw');
-      expect(repo.revokeRefreshToken).toHaveBeenCalledWith('rt1');
+      expect(repo.deleteRefreshToken).toHaveBeenCalledWith('rt1');
     });
 
     it('é idempotente: sem cookie ou token já revogado não faz nada', async () => {
       await service.logout(undefined);
       repo.findRefreshToken.mockResolvedValue({ id: 'rt1', revokedAt: past() });
       await service.logout('raw');
-      expect(repo.revokeRefreshToken).not.toHaveBeenCalled();
+      expect(repo.deleteRefreshToken).not.toHaveBeenCalled();
     });
   });
 
@@ -228,12 +262,22 @@ describe('AuthService', () => {
       ...over,
     });
 
-    it('troca a senha, marca o token como usado e derruba as sessões', async () => {
+    it('troca a senha, consome os links pendentes do usuário e derruba as sessões', async () => {
       repo.findPasswordResetToken.mockResolvedValue(resetRow());
+      repo.consumePasswordResetTokens.mockResolvedValue(['pr1', 'pr-antigo']);
       await service.resetPassword({ token: 'tok', password: 'nova-senha' });
       expect(users.setPasswordHash).toHaveBeenCalledWith('u1', 'HASH(nova-senha)');
-      expect(repo.markPasswordResetTokenUsed).toHaveBeenCalledWith('pr1');
-      expect(repo.revokeAllRefreshTokens).toHaveBeenCalledWith('u1');
+      expect(repo.consumePasswordResetTokens).toHaveBeenCalledWith('u1');
+      expect(repo.deleteAllRefreshTokens).toHaveBeenCalledWith('u1');
+    });
+
+    it('link consumido por outro pedido simultâneo → INVALID_RESET_TOKEN, sem trocar a senha', async () => {
+      repo.findPasswordResetToken.mockResolvedValue(resetRow());
+      repo.consumePasswordResetTokens.mockResolvedValue([]);
+      await expect(service.resetPassword({ token: 'tok', password: 'nova-senha' })).rejects.toMatchObject({
+        code: 'INVALID_RESET_TOKEN',
+      });
+      expect(users.setPasswordHash).not.toHaveBeenCalled();
     });
 
     it.each([

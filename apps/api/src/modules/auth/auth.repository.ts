@@ -22,16 +22,27 @@ export class AuthRepository {
     return row;
   }
 
-  async revokeRefreshToken(id: string) {
-    await this.db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.id, id));
+  /**
+   * Marca o token como trocado na rotação (`revoked_at` só significa isso; sessões encerradas têm a linha apagada).
+   * Atômico: em chamadas simultâneas, apenas uma recebe true.
+   */
+  async revokeRefreshToken(id: string): Promise<boolean> {
+    const rows = await this.db
+      .update(refreshTokens)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(refreshTokens.id, id), isNull(refreshTokens.revokedAt)))
+      .returning({ id: refreshTokens.id });
+    return rows.length > 0;
+  }
+
+  /** Encerra uma sessão (logout). */
+  async deleteRefreshToken(id: string) {
+    await this.db.delete(refreshTokens).where(eq(refreshTokens.id, id));
   }
 
   /** Encerra todas as sessões do usuário (troca de senha, suspeita de roubo de token). */
-  async revokeAllRefreshTokens(userId: string) {
-    await this.db
-      .update(refreshTokens)
-      .set({ revokedAt: new Date() })
-      .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
+  async deleteAllRefreshTokens(userId: string) {
+    await this.db.delete(refreshTokens).where(eq(refreshTokens.userId, userId));
   }
 
   // ---------- recuperação de senha ----------
@@ -49,7 +60,13 @@ export class AuthRepository {
     return row;
   }
 
-  async markPasswordResetTokenUsed(id: string) {
-    await this.db.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, id));
+  /** Atômico: invalida todos os links pendentes do usuário e devolve os ids que este comando consumiu. */
+  async consumePasswordResetTokens(userId: string): Promise<string[]> {
+    const rows = await this.db
+      .update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(and(eq(passwordResetTokens.userId, userId), isNull(passwordResetTokens.usedAt)))
+      .returning({ id: passwordResetTokens.id });
+    return rows.map((r) => r.id);
   }
 }

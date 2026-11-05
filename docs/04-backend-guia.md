@@ -304,7 +304,7 @@ Nos repositories, use `this.txHost.tx` no lugar de `this.db` (o `txHost` é inje
 
 ## Validação
 
-- **Body e query:** sempre `ZodValidationPipe(schema)` com um schema do `@clickunicap/shared`. Não use `class-validator`. Um projeto, um jeito.
+- **Body e query:** sempre `ZodValidationPipe(schema)` com um schema do `@clickunicap/shared`. Não use `class-validator`. Um projeto, um jeito. O pipe também recusa com 422 qualquer texto com caractere nulo (`\u0000`), que o Postgres não aceita.
 - **Params de ID:** `ParseUUIDPipe`.
 - **Regras de domínio** (ex.: "prazo não pode ser antes do início", "não pode haver dependência circular") ficam **no service** e lançam `DomainError`.
 
@@ -380,7 +380,7 @@ Em testes e2e, use `createProject` e `createTask` de `test/utils/factories.ts`.
 | `PATCH /api/workspaces/:id` | Admin |
 | `DELETE /api/workspaces/:id` | Só o **dono** |
 | `PATCH /:id/members/:userId` (papel) | Admin. O papel do dono não muda; sempre resta 1 admin |
-| `DELETE /:id/members/:userId` | Admin remove outros; qualquer membro remove a si mesmo (sair). O dono não sai |
+| `DELETE /:id/members/:userId` | Admin remove outros; qualquer membro remove a si mesmo (sair). O dono não sai. As tarefas da pessoa neste workspace ficam sem responsável |
 | `POST /:id/invites` · `GET /:id/invites` · `DELETE /:id/invites/:inviteId` | Admin. Convite por e-mail, vale 7 dias |
 | `POST /api/invites/accept` `{ token }` | O usuário logado com o **mesmo e-mail** do convite |
 
@@ -390,10 +390,10 @@ Em testes e2e, use `createProject` e `createTask` de `test/utils/factories.ts`.
 |---|---|
 | `POST /api/auth/register` | Cria a conta e já abre a sessão (201 `{ user }` + cookies) |
 | `POST /api/auth/login` | 200 `{ user }` + cookies. Erro sempre "E-mail ou senha inválidos" |
-| `POST /api/auth/refresh` | Troca o refresh token por um novo (**rotação**). Reusar um token antigo encerra todas as sessões |
+| `POST /api/auth/refresh` | Troca o refresh token por um novo (**rotação**). Reusar um token antigo encerra todas as sessões. Até 10 s depois da troca, o reuso recebe `409 REFRESH_IN_PROGRESS` sem mexer nos cookies (várias abas): o frontend deve só repetir a requisição original |
 | `POST /api/auth/logout` | Revoga a sessão e apaga os cookies (204) |
 | `POST /api/auth/forgot-password` | Sempre 204; se o e-mail existe, envia o link (em dev, aparece no log da API) |
-| `POST /api/auth/reset-password` | Troca a senha com o token do link (vale 1 h, uso único) e derruba as sessões |
+| `POST /api/auth/reset-password` | Troca a senha com o token do link (vale 1 h, uso único), invalida os outros links pendentes e derruba as sessões |
 | `GET/PATCH /api/users/me` | Perfil do usuário logado |
 
 **Limite de tentativas (por IP, por minuto):** login 5, cadastro 5, recuperar senha 3, redefinir senha 5, demais

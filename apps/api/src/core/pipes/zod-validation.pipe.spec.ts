@@ -1,4 +1,5 @@
 import { createTaskSchema } from '@clickunicap/shared';
+import { z } from 'zod';
 import { ValidationError } from '@/core/errors';
 import { ZodValidationPipe } from './zod-validation.pipe';
 
@@ -7,6 +8,13 @@ describe('ZodValidationPipe', () => {
 
   it('devolve o valor já transformado pelo schema', () => {
     expect(pipe.transform({ title: '  Tarefa  ' })).toEqual({ title: 'Tarefa' });
+  });
+
+  it('recusa caractere nulo em qualquer nível do valor', () => {
+    expect(() => pipe.transform({ title: 'a\u0000b' })).toThrow(ValidationError);
+    const nested = new ZodValidationPipe(z.object({ tags: z.array(z.object({ name: z.string() })) }));
+    expect(() => nested.transform({ tags: [{ name: 'a\u0000b' }] })).toThrow(ValidationError);
+    expect(nested.transform({ tags: [{ name: 'ab' }] })).toEqual({ tags: [{ name: 'ab' }] });
   });
 
   it('lança ValidationError com os campos inválidos', () => {
