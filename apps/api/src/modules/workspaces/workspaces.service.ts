@@ -105,7 +105,9 @@ export class WorkspacesService {
     const target = await this.repo.findMember(ws.id, targetUserId);
     if (!target) throw new NotFoundError('Membro', targetUserId);
     if (targetUserId === row.ownerId) {
-      throw new ForbiddenError(isSelf ? 'O dono não pode sair do workspace' : 'O dono do workspace não pode ser removido');
+      throw new ForbiddenError(
+        isSelf ? 'O dono não pode sair do workspace' : 'O dono do workspace não pode ser removido',
+      );
     }
     if (target.role === 'admin' && (await this.repo.countAdmins(ws.id)) <= 1) {
       throw new DomainError('O workspace precisa de pelo menos um administrador', 'LAST_ADMIN', 400);
@@ -121,9 +123,8 @@ export class WorkspacesService {
       throw new ConflictError('Essa pessoa já é membro do workspace', 'ALREADY_MEMBER');
     }
 
-    await this.repo.deletePendingInvitesForEmail(ws.id, input.email);
     const { raw, hash } = generateOpaqueToken();
-    const invite = await this.repo.insertInvite({
+    const invite = await this.repo.replacePendingInvite({
       workspaceId: ws.id,
       email: input.email,
       role: input.role,
