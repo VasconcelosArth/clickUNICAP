@@ -185,7 +185,7 @@ pnpm --filter api test:e2e
 - um workspace "UNICAP Demo" com os três;
 - 2 projetos com ~30 tarefas em status variados.
 
-O seed usa as mesmas **factories** dos testes (`apps/api/test/factories`). Cada frente adiciona seus dados ao seed.
+O seed fica em `apps/api/src/core/database/seed.ts` e não faz nada se os dados já existirem. Cada frente adiciona seus dados a ele.
 
 ## Acesso ao banco em dev
 

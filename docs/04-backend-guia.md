@@ -353,6 +353,24 @@ export class ProjectsController {
 - Para validar que um usuário (ex.: o responsável de uma tarefa) é do workspace, use `WorkspacesService.isMember()`.
 - Em testes e2e, use `registerUser(app)` e `registerUserWithWorkspace(app)` de `test/utils/auth-helpers.ts`.
 
+### Rotas de projetos e tarefas (já implementadas)
+
+Todas pedem o header `X-Workspace-Id`.
+
+| Rota | O que faz |
+|---|---|
+| `POST /api/projects` · `GET /api/projects?includeArchived=true` | Cria / lista. Arquivados só aparecem com o parâmetro |
+| `GET` · `PATCH /api/projects/:id` | Ver / editar |
+| `POST /api/projects/:id/archive` · `/unarchive` | Só admin. Projetos não são apagados |
+| `POST /api/projects/:projectId/tasks` | Cria no fim da coluna. Recusa projeto arquivado (`PROJECT_ARCHIVED`) |
+| `GET /api/projects/:projectId/tasks` | Filtros: `status`, `priority`, `assigneeId`, `dueFrom`, `dueTo`, `search` |
+| `GET` · `PATCH` · `DELETE /api/tasks/:id` | Mudar o status leva ao fim da nova coluna e ajusta `completedAt` |
+
+Outros módulos usam `TasksService.findOne(workspaceId, taskId)`, que devolve `null` fora do workspace.
+Eventos já emitidos: `task.assigned` e `task.status_changed`. Ainda não há ouvinte: a Pessoa 5 assina com `@OnEvent`.
+Para o body aparecer no Swagger, valide com `@ZodBody(schema)` de `core/swagger/zod-body.ts`.
+Em testes e2e, use `createProject` e `createTask` de `test/utils/factories.ts`.
+
 ### Rotas de workspaces (já implementadas)
 
 | Rota | Quem pode |

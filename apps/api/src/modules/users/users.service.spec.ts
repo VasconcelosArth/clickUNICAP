@@ -52,6 +52,12 @@ describe('UsersService', () => {
       expect(repo.update).toHaveBeenCalledWith('u1', { name: 'Ana Maria' });
     });
 
+    it('PATCH vazio devolve o perfil sem gravar', async () => {
+      repo.findById.mockResolvedValue(row);
+      await expect(service.updateProfile('u1', {})).resolves.toMatchObject({ id: 'u1' });
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
     it('lança NotFoundError se o usuário sumiu', async () => {
       repo.update.mockResolvedValue(undefined);
       await expect(service.updateProfile('x', { name: 'y' })).rejects.toBeInstanceOf(NotFoundError);

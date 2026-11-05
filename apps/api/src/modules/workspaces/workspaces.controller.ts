@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import {
   acceptInviteSchema,
   createWorkspaceSchema,
@@ -13,7 +13,7 @@ import {
 } from '@clickunicap/shared';
 import { CurrentUser, type AuthUser } from '@/core/auth';
 import { CurrentMembership, Roles, RolesGuard, WorkspaceMemberGuard, type WorkspaceContext } from '@/core/guards';
-import { ZodValidationPipe } from '@/core/pipes/zod-validation.pipe';
+import { ZodBody } from '@/core/swagger/zod-body';
 import { WorkspacesService } from './workspaces.service';
 
 /**
@@ -26,7 +26,7 @@ export class WorkspacesController {
 
   /** POST /api/workspaces — quem cria vira dono e admin */
   @Post()
-  create(@CurrentUser() user: AuthUser, @Body(new ZodValidationPipe(createWorkspaceSchema)) body: CreateWorkspaceInput) {
+  create(@CurrentUser() user: AuthUser, @ZodBody(createWorkspaceSchema) body: CreateWorkspaceInput) {
     return this.service.create(user, body);
   }
 
@@ -45,7 +45,7 @@ export class WorkspacesController {
   @Patch(':workspaceId')
   @UseGuards(WorkspaceMemberGuard, RolesGuard)
   @Roles('admin')
-  rename(@CurrentMembership() ws: WorkspaceContext, @Body(new ZodValidationPipe(updateWorkspaceSchema)) body: UpdateWorkspaceInput) {
+  rename(@CurrentMembership() ws: WorkspaceContext, @ZodBody(updateWorkspaceSchema) body: UpdateWorkspaceInput) {
     return this.service.rename(ws, body);
   }
 
@@ -72,7 +72,7 @@ export class WorkspacesController {
   changeRole(
     @CurrentMembership() ws: WorkspaceContext,
     @Param('userId', ParseUUIDPipe) userId: string,
-    @Body(new ZodValidationPipe(updateMemberRoleSchema)) body: UpdateMemberRoleInput,
+    @ZodBody(updateMemberRoleSchema) body: UpdateMemberRoleInput,
   ) {
     return this.service.changeRole(ws, userId, body.role);
   }
@@ -97,7 +97,7 @@ export class WorkspacesController {
   invite(
     @CurrentUser() user: AuthUser,
     @CurrentMembership() ws: WorkspaceContext,
-    @Body(new ZodValidationPipe(inviteMemberSchema)) body: InviteMemberInput,
+    @ZodBody(inviteMemberSchema) body: InviteMemberInput,
   ) {
     return this.service.invite(user, ws, body);
   }
@@ -125,7 +125,7 @@ export class InvitesController {
 
   @Post('accept')
   @HttpCode(200)
-  accept(@CurrentUser() user: AuthUser, @Body(new ZodValidationPipe(acceptInviteSchema)) body: AcceptInviteInput) {
+  accept(@CurrentUser() user: AuthUser, @ZodBody(acceptInviteSchema) body: AcceptInviteInput) {
     return this.service.acceptInvite(user, body);
   }
 }

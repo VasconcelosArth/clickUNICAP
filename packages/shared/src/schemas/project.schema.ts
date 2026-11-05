@@ -25,3 +25,12 @@ export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 
 export const updateProjectSchema = createProjectSchema.partial();
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
+
+/** GET /api/projects?includeArchived=true */
+export const listProjectsQuerySchema = z.object({
+  includeArchived: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+});
+export type ListProjectsQuery = z.infer<typeof listProjectsQuerySchema>;

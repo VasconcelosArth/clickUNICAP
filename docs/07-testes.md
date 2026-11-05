@@ -131,6 +131,8 @@ describe('POST /api/tasks/:taskId/comments', () => {
 });
 ```
 
+Nomes reais dos helpers: `createTestApp` e `resetDatabase` (`test/utils/create-test-app.ts`), `registerUser` e `registerUserWithWorkspace` (`test/utils/auth-helpers.ts`), `createProject` e `createTask` (`test/utils/factories.ts`).
+
 O banco de teste é o serviço `postgres-test` do Docker (porta **5433**, dados em memória com `tmpfs`). O
 `setup-e2e.ts` aplica as migrations uma vez antes de tudo.
 

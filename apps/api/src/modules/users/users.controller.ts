@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Patch } from '@nestjs/common';
+import { Controller, Get, Patch } from '@nestjs/common';
 import { updateProfileSchema, type UpdateProfileInput } from '@clickunicap/shared';
 import { CurrentUser, type AuthUser } from '@/core/auth';
-import { ZodValidationPipe } from '@/core/pipes/zod-validation.pipe';
+import { ZodBody } from '@/core/swagger/zod-body';
 import { UsersService } from './users.service';
 
 /** Perfil do usuário logado. */
@@ -17,7 +17,7 @@ export class UsersController {
 
   /** PATCH /api/users/me — altera nome e/ou avatar */
   @Patch('me')
-  update(@CurrentUser() user: AuthUser, @Body(new ZodValidationPipe(updateProfileSchema)) body: UpdateProfileInput) {
+  update(@CurrentUser() user: AuthUser, @ZodBody(updateProfileSchema) body: UpdateProfileInput) {
     return this.service.updateProfile(user.id, body);
   }
 }

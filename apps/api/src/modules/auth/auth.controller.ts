@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { CookieOptions, Request, Response } from 'express';
 import {
@@ -13,7 +13,7 @@ import {
 } from '@clickunicap/shared';
 import { ACCESS_COOKIE, ACCESS_COOKIE_PATH, Public, REFRESH_COOKIE, REFRESH_COOKIE_PATH } from '@/core/auth';
 import { AppConfig } from '@/core/config';
-import { ZodValidationPipe } from '@/core/pipes/zod-validation.pipe';
+import { ZodBody } from '@/core/swagger/zod-body';
 import { AuthService, type Session } from './auth.service';
 
 /**
@@ -32,7 +32,7 @@ export class AuthController {
   /** POST /api/auth/register → 201 { user } + cookies */
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  async register(@Body(new ZodValidationPipe(registerSchema)) body: RegisterInput, @Res({ passthrough: true }) res: Response) {
+  async register(@ZodBody(registerSchema) body: RegisterInput, @Res({ passthrough: true }) res: Response) {
     return this.respondWithSession(res, await this.auth.register(body));
   }
 
@@ -40,7 +40,7 @@ export class AuthController {
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60_000 } }) // contra força bruta de senha
   @HttpCode(200)
-  async login(@Body(new ZodValidationPipe(loginSchema)) body: LoginInput, @Res({ passthrough: true }) res: Response) {
+  async login(@ZodBody(loginSchema) body: LoginInput, @Res({ passthrough: true }) res: Response) {
     return this.respondWithSession(res, await this.auth.login(body));
   }
 
@@ -68,7 +68,7 @@ export class AuthController {
   @Post('forgot-password')
   @Throttle({ default: { limit: 3, ttl: 60_000 } }) // evita spam de e-mails
   @HttpCode(204)
-  async forgotPassword(@Body(new ZodValidationPipe(forgotPasswordSchema)) body: ForgotPasswordInput) {
+  async forgotPassword(@ZodBody(forgotPasswordSchema) body: ForgotPasswordInput) {
     await this.auth.forgotPassword(body);
   }
 
@@ -76,7 +76,7 @@ export class AuthController {
   @Post('reset-password')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(204)
-  async resetPassword(@Body(new ZodValidationPipe(resetPasswordSchema)) body: ResetPasswordInput) {
+  async resetPassword(@ZodBody(resetPasswordSchema) body: ResetPasswordInput) {
     await this.auth.resetPassword(body);
   }
 

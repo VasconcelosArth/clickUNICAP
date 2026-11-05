@@ -19,6 +19,7 @@ export class UsersService {
   }
 
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<User> {
+    if (Object.keys(input).length === 0) return this.getProfile(userId);
     const row = await this.repo.update(userId, input);
     if (!row) throw new NotFoundError('User', userId);
     return toUserDto(row);

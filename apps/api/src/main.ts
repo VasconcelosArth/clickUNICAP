@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { AppConfig } from '@/core/config';
+import { setupSwagger } from '@/core/swagger/setup-swagger';
 import { AppModule } from './app.module';
 
 /** Configuração comum ao servidor real e aos testes e2e. */
@@ -12,6 +13,7 @@ export function configureApp(app: INestApplication) {
   app.setGlobalPrefix('api');
   app.enableCors({ origin: config.corsOrigin, credentials: true });
   app.enableShutdownHooks();
+  if (!config.isProduction) setupSwagger(app);
   return app;
 }
 

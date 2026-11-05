@@ -13,7 +13,8 @@ a mesma API de tarefas. Referência do produto: [`docs/01-clickup-referencia.md`
 
 **Backend primeiro, frontend depois** ([docs/02](docs/02-organizacao-do-projeto.md#ordem-de-construção-backend-primeiro-frontend-depois)).
 - ✅ Etapa 0 (fundação): monorepo, `packages/shared`, `apps/api` com core, as 17 tabelas e as migrations.
-- ⏳ Etapa 1 (agora): backend dos módulos de cada frente.
+- ✅ Base do backend (Pessoa 1): auth, users, workspaces, projects, tasks, eventos, Swagger, seed e CI.
+- ⏳ Etapa 1 (agora): backend das outras frentes (Pessoas 2 a 10).
 - ⛔ Etapa 2: `apps/web` **ainda não existe**. Não crie código de frontend até a Etapa 1 do MVP fechar.
 
 ## Stack (não troque sem um ADR)
