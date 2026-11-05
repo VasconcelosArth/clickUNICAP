@@ -47,7 +47,7 @@ describe('TasksService', () => {
     workspaces.isMember.mockResolvedValue(true);
     repo.maxPosition.mockResolvedValue(null);
     repo.insert.mockImplementation(async (d) => task(d));
-    repo.update.mockImplementation(async (_id, d) => task(d));
+    repo.update.mockImplementation(async (_workspaceId, _id, d) => task(d));
     const mod = await Test.createTestingModule({
       providers: [
         TasksService,
@@ -127,7 +127,8 @@ describe('TasksService', () => {
       repo.findById.mockResolvedValue(task());
       repo.maxPosition.mockResolvedValue(2);
       await service.update(ctx, 't1', { status: 'done' });
-      const patch = repo.update.mock.calls[0][1];
+      expect(repo.update.mock.calls[0].slice(0, 2)).toEqual(['w1', 't1']);
+      const patch = repo.update.mock.calls[0][2];
       expect(patch.position).toBe(3);
       expect(patch.completedAt).toBeInstanceOf(Date);
       expect(events.emit).toHaveBeenCalledWith(
@@ -139,13 +140,13 @@ describe('TasksService', () => {
     it('reabrir limpa completedAt', async () => {
       repo.findById.mockResolvedValue(task({ status: 'done', completedAt: now }));
       await service.update(ctx, 't1', { status: 'todo' });
-      expect(repo.update.mock.calls[0][1].completedAt).toBeNull();
+      expect(repo.update.mock.calls[0][2].completedAt).toBeNull();
     });
 
     it('mesmo status e mesmo responsável: sem evento e sem mudar posição', async () => {
       repo.findById.mockResolvedValue(task({ assigneeId: 'u2' }));
       await service.update(ctx, 't1', { status: 'todo', assigneeId: 'u2' });
-      expect(repo.update.mock.calls[0][1]).not.toHaveProperty('position');
+      expect(repo.update.mock.calls[0][2]).not.toHaveProperty('position');
       expect(workspaces.isMember).not.toHaveBeenCalled();
       expect(events.emit).not.toHaveBeenCalled();
     });
@@ -155,6 +156,26 @@ describe('TasksService', () => {
       await service.update(ctx, 't1', { assigneeId: null });
       expect(events.emit).not.toHaveBeenCalled();
     });
+
+    it('projeto arquivado é somente leitura', async () => {
+      repo.findById.mockResolvedValue(task());
+      projects.get.mockResolvedValue({ id: 'p1', archivedAt: now.toISOString() });
+      await expect(service.update(ctx, 't1', { title: 'x' })).rejects.toMatchObject({ code: 'PROJECT_ARCHIVED' });
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+  });
+
+  it('delete recusa tarefa de projeto arquivado', async () => {
+    repo.findById.mockResolvedValue(task());
+    projects.get.mockResolvedValue({ id: 'p1', archivedAt: now.toISOString() });
+    await expect(service.delete('w1', 't1')).rejects.toMatchObject({ code: 'PROJECT_ARCHIVED' });
+    expect(repo.delete).not.toHaveBeenCalled();
+  });
+
+  it('delete apaga dentro do workspace', async () => {
+    repo.findById.mockResolvedValue(task());
+    await service.delete('w1', 't1');
+    expect(repo.delete).toHaveBeenCalledWith('w1', 't1');
   });
 
   it('findOne devolve null fora do workspace', async () => {

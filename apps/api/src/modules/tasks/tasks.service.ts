@@ -45,8 +45,7 @@ export class TasksService {
   ) {}
 
   async create(ctx: TaskContext, projectId: string, input: CreateTaskInput): Promise<Task> {
-    const project = await this.projects.get(ctx.workspaceId, projectId);
-    if (project.archivedAt) throw new ConflictError('Este projeto está arquivado', 'PROJECT_ARCHIVED');
+    await this.assertNotArchived(ctx.workspaceId, projectId);
     await this.assertAssignee(ctx.workspaceId, input.assigneeId);
 
     const status = input.status ?? 'todo';
@@ -54,7 +53,7 @@ export class TasksService {
       ...input,
       projectId,
       status,
-      position: await this.endOfColumn(projectId, status),
+      position: await this.endOfColumn(ctx.workspaceId, projectId, status),
       completedAt: status === 'done' ? new Date() : null,
       createdBy: ctx.userId,
     });
@@ -80,6 +79,7 @@ export class TasksService {
   async update(ctx: TaskContext, taskId: string, input: UpdateTaskInput): Promise<Task> {
     const current = await this.mustFind(ctx.workspaceId, taskId);
     if (Object.keys(input).length === 0) return toTaskDto(current);
+    await this.assertNotArchived(ctx.workspaceId, current.projectId);
 
     const startDate = input.startDate === undefined ? current.startDate : input.startDate;
     const dueDate = input.dueDate === undefined ? current.dueDate : input.dueDate;
@@ -93,11 +93,11 @@ export class TasksService {
     const statusChanged = input.status !== undefined && input.status !== current.status;
     const patch: Partial<NewTaskRow> = { ...input };
     if (statusChanged && input.status) {
-      patch.position = await this.endOfColumn(current.projectId, input.status);
+      patch.position = await this.endOfColumn(ctx.workspaceId, current.projectId, input.status);
       patch.completedAt = input.status === 'done' ? new Date() : null;
     }
 
-    const row = await this.repo.update(taskId, patch);
+    const row = await this.repo.update(ctx.workspaceId, taskId, patch);
     if (!row) throw new NotFoundError('Tarefa', taskId);
 
     if (assigneeChanged && row.assigneeId) this.emitAssigned(ctx, row.id, row.assigneeId);
@@ -115,8 +115,9 @@ export class TasksService {
   }
 
   async delete(workspaceId: string, taskId: string): Promise<void> {
-    await this.mustFind(workspaceId, taskId);
-    await this.repo.delete(taskId);
+    const current = await this.mustFind(workspaceId, taskId);
+    await this.assertNotArchived(workspaceId, current.projectId);
+    await this.repo.delete(workspaceId, taskId);
   }
 
   private async mustFind(workspaceId: string, taskId: string): Promise<TaskRow> {
@@ -125,14 +126,20 @@ export class TasksService {
     return row;
   }
 
+  /** Projeto arquivado é somente leitura: desarquive para mexer nas tarefas. */
+  private async assertNotArchived(workspaceId: string, projectId: string) {
+    const project = await this.projects.get(workspaceId, projectId);
+    if (project.archivedAt) throw new ConflictError('Este projeto está arquivado', 'PROJECT_ARCHIVED');
+  }
+
   private async assertAssignee(workspaceId: string, assigneeId: string | null | undefined) {
     if (assigneeId && !(await this.workspaces.isMember(workspaceId, assigneeId))) {
       throw new DomainError('O responsável precisa ser membro do workspace', 'INVALID_ASSIGNEE', 400);
     }
   }
 
-  private async endOfColumn(projectId: string, status: TaskStatus): Promise<number> {
-    return ((await this.repo.maxPosition(projectId, status)) ?? 0) + 1;
+  private async endOfColumn(workspaceId: string, projectId: string, status: TaskStatus): Promise<number> {
+    return ((await this.repo.maxPosition(workspaceId, projectId, status)) ?? 0) + 1;
   }
 
   private emitAssigned(ctx: TaskContext, taskId: string, assigneeId: string) {
