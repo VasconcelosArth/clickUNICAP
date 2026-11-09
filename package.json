@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "dev": "pnpm --filter @clickunicap/shared build && pnpm --parallel --filter @clickunicap/shared --filter api dev",
+    "dev": "pnpm --filter @clickunicap/shared build && pnpm --parallel --filter @clickunicap/shared --filter api --filter web dev",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
@@ -27,7 +27,7 @@
     "typescript-eslint": "^8.18.2"
   },
   "lint-staged": {
-    "*.{ts,mjs,js}": [
+    "*.{ts,tsx,mjs,js}": [
       "eslint --fix",
       "prettier --write"
     ]

@@ -71,8 +71,8 @@ clickUNICAP/
 
 ## Regras de dependência
 
-Quem pode importar quem. No backend, **isso é verificado no lint** (`no-restricted-imports` em `eslint.config.mjs`).
-As regras do frontend entram no lint junto com o `apps/web`, na Etapa 2.
+Quem pode importar quem. No backend e no frontend, **isso é verificado no lint** (`no-restricted-imports` em
+`eslint.config.mjs`).
 
 ```
 packages/shared   ← não importa nada do projeto (só zod)

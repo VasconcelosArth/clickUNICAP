@@ -21,12 +21,12 @@ docker compose up -d                # sobe postgres (5432), postgres-test (5433)
 pnpm install
 pnpm --filter api db:migrate        # cria as tabelas
 pnpm --filter api db:seed           # dados de exemplo (ana@clickunicap.dev / senha123)
-pnpm dev                            # compila o shared e sobe a API em :3000 (recarrega ao salvar)
+pnpm dev                            # compila o shared e sobe a API em :3000 e o frontend em :5173 (recarregam ao salvar)
 pnpm test                           # testes unitários (não precisam do Docker)
 pnpm --filter api test:e2e          # testes e2e (precisam do postgres-test no ar)
 ```
 
-> **Hoje existe só o backend** (backend primeiro, ver docs/02). O `apps/web` entra na Etapa 2.
+> Abra o frontend em http://localhost:5173. Ele chama a API pelo proxy do Vite, em `/api`.
 > Se você instalou o Node agora, ative o pnpm com `corepack enable` ou `npm i -g pnpm@9`.
 
 ## Serviços do Docker Compose

@@ -11,10 +11,10 @@ constrói a base do sistema, as Pessoas 2 a 5 fazem o resto do MVP e as Pessoas 
 | **Fase 2** | Recursos de gestão de projeto | Calendário, anexos, campos personalizados, dependências + Gantt, controle de tempo, automações |
 | **Fase 3** | Plataforma completa | Dashboards, docs, metas, chat, whiteboard, integrações, IA |
 
-## Ordem de construção: backend primeiro, frontend depois
+## Ordem de construção: backend e frontend em paralelo
 
-**Regra do projeto:** o frontend só começa depois que o backend da etapa estiver pronto. Assim a tela é construída
-em cima de uma API real e testada, e não sobre suposições que mudam depois.
+**Regra do projeto:** o frontend começa agora, junto com o backend que ainda falta, mas **só entra no frontend o que já
+tem rota implementada no backend**. A tela de cada frente começa quando a rota dela estiver pronta.
 
 ```
 Etapa 0 ─ Fundação (Pessoa 1) ......................... ✅ feita
@@ -27,16 +27,16 @@ Etapa 1 ─ BACKEND do MVP (todos, em paralelo) .......... ⏳ agora
           Pessoas 6–10: backend da Fase 2 (as tabelas já existem)
               │   critério de saída: rotas no Swagger + testes unitários e e2e passando
               ▼
-Etapa 2 ─ FRONTEND (começa quando a Etapa 1 do MVP fechar)
+Etapa 2 ─ FRONTEND (em paralelo com a Etapa 1) ......... ⏳ agora
           Pessoa 1: setup do apps/web, layout, components/ui, auth e telas da base, slots
-          demais: a feature de cada frente, consumindo a API real
+          demais: a feature de cada frente, depois que a rota dela existir
               │
 Etapa 3 ─ Integração, ponta a ponta (Playwright) e backlog reserva
 ```
 
-**Enquanto espera a Etapa 2**, quem terminar o próprio backend antes deve, nesta ordem: ajudar a fechar o backend de
-outra frente, escrever testes e2e de fluxos entre módulos, e pegar o backend de um item do backlog reserva.
-**Ninguém começa tela antes da hora.**
+**O setup do `apps/web` e as telas da base já existem.** Cada frente cria a própria tela quando a rota dela estiver
+pronta. Até lá, quem terminar o próprio backend pode ajudar a fechar o backend de outra frente, escrever testes e2e de fluxos entre módulos
+ou pegar o backend de um item do backlog reserva. Todas as telas seguem o [guia de design](11-design-guia.md).
 
 ## As 10 frentes
 
@@ -77,9 +77,9 @@ A base é o que **todo mundo usa**, então ela vem primeiro e precisa de prazo c
 - [x] Swagger em `/api/docs`; eventos de domínio (`core/events`); factories de teste e `db:seed`.
 - [x] CI no GitHub Actions; hooks de pre-commit (lint, testes) e de mensagem de commit.
 
-**Etapa 2 — Frontend da base (só depois da Etapa 1):**
-- [ ] Setup do `apps/web`, layout (menu lateral, topo, rotas), `components/ui`, cliente HTTP.
-- [ ] Telas de auth, workspaces, projetos e detalhe da tarefa com os **slots** (ver abaixo).
+**Etapa 2 — Frontend da base (em paralelo com a Etapa 1):**
+- [x] Setup do `apps/web`, layout (menu lateral, topo, rotas), `components/ui`, cliente HTTP.
+- [x] Telas de auth, workspaces, projetos e detalhe da tarefa com os **slots** (ver abaixo).
 
 ### Detalhe das outras frentes
 
@@ -96,15 +96,14 @@ Toda entidade tem um **schema Zod** em `packages/shared/src/schemas/`. Dele saem
 - o tipo TypeScript, usado no backend e no frontend;
 - a validação do body no backend;
 - a validação de formulário no frontend;
-- os **dados falsos (mocks)** para quem ainda não tem a API pronta.
+- os **dados falsos (mocks)** usados nos testes do frontend.
 
 Mudar um schema compartilhado exige um PR revisado pela Pessoa 1 e aviso no grupo.
 
-### 2. Mocks enquanto a API não existe
+### 2. Mocks de rotas que já existem
 
-Quem depende de uma rota que ainda não existe usa **MSW (Mock Service Worker)** no frontend, com handlers em
-`apps/web/src/features/<feature>/mocks/`. Quando a API real ficar pronta, basta desligar o mock. O código da
-feature não muda.
+O frontend usa **MSW (Mock Service Worker)** para simular rotas **já implementadas**, nos testes e para rodar a tela sem
+subir a API, com handlers em `apps/web/src/features/<feature>/mocks/`. Mock não libera tela de rota que ainda não existe.
 
 ### 3. Slots na tela de detalhe da tarefa
 
@@ -154,7 +153,7 @@ Quem terminar a própria frente pega o primeiro item livre, **avisa no grupo** e
 
 | Risco | Plano |
 |---|---|
-| A base (Pessoa 1) atrasa | Todos seguem com MSW e mocks do `shared`. Quem terminar primeiro ajuda a Pessoa 1 |
+| A base (Pessoa 1) atrasa | Todos seguem no backend da própria frente. Quem terminar primeiro ajuda a Pessoa 1 |
 | Alguém muda o contrato sem avisar | O CI falha (tipos quebram). Toda mudança em `packages/shared` precisa de revisão da Pessoa 1 |
 | Dois mexendo no mesmo arquivo | Respeitar donos (arquivo `CODEOWNERS`). Na dúvida, perguntar antes |
 | Código gerado por IA fora do padrão | A revisão de PR checa o [checklist de IA](09-guia-ia.md#checklist-de-revisão-de-código-gerado-por-ia) |

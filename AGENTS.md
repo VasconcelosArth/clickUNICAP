@@ -11,17 +11,18 @@ a mesma API de tarefas. Referência do produto: [`docs/01-clickup-referencia.md`
 
 ## Estado atual e ordem de construção
 
-**Backend primeiro, frontend depois** ([docs/02](docs/02-organizacao-do-projeto.md#ordem-de-construção-backend-primeiro-frontend-depois)).
+**Backend e frontend em paralelo** ([docs/02](docs/02-organizacao-do-projeto.md#ordem-de-construção-backend-e-frontend-em-paralelo)).
 - ✅ Etapa 0 (fundação): monorepo, `packages/shared`, `apps/api` com core, as 17 tabelas e as migrations.
 - ✅ Base do backend (Pessoa 1): auth, users, workspaces, projects, tasks, eventos, Swagger, seed e CI.
 - ⏳ Etapa 1 (agora): backend das outras frentes (Pessoas 2 a 10).
-- ⛔ Etapa 2: `apps/web` **ainda não existe**. Não crie código de frontend até a Etapa 1 do MVP fechar.
+- ⏳ Etapa 2 (agora, em paralelo): frontend. O `apps/web` já tem o setup e as telas de autenticação, workspaces, membros, projetos, tarefas, Kanban e Lista. **Só entra no frontend o que já tem rota implementada no backend.**
 
 ## Stack (não troque sem um ADR)
 
 - Monorepo **pnpm workspaces**: `apps/api` (NestJS 11), `apps/web` (React 19 + Vite), `packages/shared` (Zod).
 - Banco **PostgreSQL 16** via **Drizzle ORM** (`drizzle-kit` para migrations). Docker Compose para a infra local.
-- Front: **TanStack Query v5**, React Router v7, React Hook Form + Zod, Tailwind, Zustand (só estado de UI), MSW.
+- Front: **TanStack Query v5**, React Router v7, React Hook Form + Zod, Tailwind v4, Zustand (só estado de UI), MSW.
+- Visual: baseado no template **Mosaic Lite** ([cruip/tailwind-dashboard-template](https://github.com/cruip/tailwind-dashboard-template)), com o padrão definido em [`docs/11-design-guia.md`](docs/11-design-guia.md).
 - Testes: **Jest + Supertest** (api), **Vitest + Testing Library + MSW** (web e shared), **Playwright** (e2e).
 - Auth: JWT em **cookie httpOnly** (access 15 min, refresh 7 dias), senha com **argon2**.
 
@@ -48,7 +49,7 @@ pnpm --filter api db:migrate
 3. **Rode os testes antes de commitar.** Se falhar, não commite; informe qual teste quebrou.
 4. Código em **inglês**; textos da UI, docs e commits em **português**. Conventional Commits.
 5. Proibido: `any`, `@ts-ignore`, `console.log` commitado, `process.env` fora de `core/config`, segredos no código.
-6. **Não adicione dependências** fora da stack sem pedir confirmação.
+6. **Não adicione dependências** fora da stack sem pedir confirmação. As do Mosaic Lite já estão liberadas no `apps/web`: `tailwindcss`, `@tailwindcss/postcss`, `@tailwindcss/forms`, `postcss`, `vite`, `@vitejs/plugin-react`, `@radix-ui/react-popover`, `chart.js`, `chartjs-adapter-moment`, `moment`, `date-fns`, `react-day-picker`, `react-transition-group`, `clsx` e `tailwind-merge`.
 7. Mexa só nos arquivos do escopo pedido. `packages/shared`, `apps/api/src/core` e migrations existentes exigem cuidado extra: pergunte antes.
 
 ### Backend (`apps/api`) — detalhes em [`docs/04-backend-guia.md`](docs/04-backend-guia.md)
@@ -69,6 +70,8 @@ pnpm --filter api db:migrate
 - Filtros e abas na **URL**. Zustand só para estado global de UI.
 - A tela de detalhe da tarefa é estendida por **slots** (`src/app/slots/`), não editando o componente da base.
 - Toda tela trata **loading, erro e vazio**. Acessibilidade: labels, `aria-label`, teclado.
+- **Escopo:** implemente só o que já tem rota no backend (confira no Swagger, em `/api/docs`). O protótipo e o guia de design mostram o produto completo e são referência visual: o que depende de rota inexistente fica de fora, sem link, aba ou botão desativado, e MSW não substitui a rota. Lista atual em [`docs/05`](docs/05-frontend-guia.md#rotas).
+- **Visual:** toda tela, inclusive as que o template não tem (Kanban, Lista, Calendário, Gantt, detalhe da tarefa), segue [`docs/11-design-guia.md`](docs/11-design-guia.md). Não invente cor, espaçamento ou variação de componente fora dele.
 
 ### Banco — detalhes em [`docs/06-banco-de-dados.md`](docs/06-banco-de-dados.md)
 - `snake_case`, tabelas no plural, `uuid` como PK, `timestamptz`, índice em toda FK.
@@ -94,5 +97,7 @@ pnpm --filter api db:migrate
 - [ ] Segue as camadas e as fronteiras acima.
 - [ ] Testes escritos e passando (`pnpm test`), incluindo o caso de outro workspace nas rotas.
 - [ ] `pnpm lint` e `pnpm typecheck` sem erro.
+- [ ] Toda tela usa só rotas que já existem no backend.
+- [ ] Telas seguem o [guia de design](docs/11-design-guia.md), nos temas claro e escuro.
 - [ ] Docs atualizados se mudou regra, rota, tabela ou convenção.
 - [ ] Checklist completo em [`docs/09-guia-ia.md`](docs/09-guia-ia.md#4-checklist-de-revisão-de-código-gerado-por-ia).
