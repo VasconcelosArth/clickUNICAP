@@ -6,9 +6,11 @@ import {
   taskFiltersSchema,
   taskSchema,
   updateTaskSchema,
+  moveTaskSchema,
   type CreateTaskInput,
   type TaskFilters,
   type UpdateTaskInput,
+  type MoveTaskInput,
 } from '@clickunicap/shared';
 import { CurrentUser, type AuthUser } from '@/core/auth';
 import { CurrentWorkspace, WorkspaceMemberGuard } from '@/core/guards';
@@ -67,6 +69,18 @@ export class TasksController {
     @ZodBody(updateTaskSchema) body: UpdateTaskInput,
   ) {
     return this.service.update({ userId: user.id, workspaceId }, id, body);
+  }
+
+  /** Kanban: muda a coluna (status) e/ou a posição da tarefa. Ver docs/06 — Ordenação no Kanban. */
+  @Post(':id/move')
+  @ZodResponse(taskSchema)
+  move(
+    @CurrentUser() user: AuthUser,
+    @CurrentWorkspace() workspaceId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @ZodBody(moveTaskSchema) body: MoveTaskInput,
+  ) {
+    return this.service.move({ userId: user.id, workspaceId }, id, body);
   }
 
   @Delete(':id')
