@@ -94,22 +94,39 @@ export class TasksRepository {
     if (!found) return undefined;
 
     return this.db.transaction(async (tx) => {
-      await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, found.projectId)).for('update');
+      await tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.id, found.projectId), eq(projects.workspaceId, workspaceId)))
+        .for('update');
 
-      const [current] = await tx.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+      const [current] = await tx
+        .select()
+        .from(tasks)
+        .where(and(this.inWorkspace(workspaceId), eq(tasks.id, id)))
+        .limit(1);
       if (!current) return undefined;
 
       const column = await tx
         .select()
         .from(tasks)
-        .where(and(eq(tasks.projectId, current.projectId), eq(tasks.status, targetStatus)))
+        .where(
+          and(this.inWorkspace(workspaceId), eq(tasks.projectId, current.projectId), eq(tasks.status, targetStatus)),
+        )
         .orderBy(asc(tasks.position));
 
       const { patch, renumber } = plan(current, column);
       for (const r of renumber) {
-        await tx.update(tasks).set({ position: r.position }).where(eq(tasks.id, r.id));
+        await tx
+          .update(tasks)
+          .set({ position: r.position })
+          .where(and(this.inWorkspace(workspaceId), eq(tasks.id, r.id)));
       }
-      const [after] = await tx.update(tasks).set(patch).where(eq(tasks.id, id)).returning();
+      const [after] = await tx
+        .update(tasks)
+        .set(patch)
+        .where(and(this.inWorkspace(workspaceId), eq(tasks.id, id)))
+        .returning();
       if (!after) throw new Error('Falha ao mover tarefa');
       return { before: current, after };
     });
