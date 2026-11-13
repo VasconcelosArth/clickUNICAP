@@ -364,6 +364,7 @@ Todas pedem o header `X-Workspace-Id`.
 | `POST /api/projects/:id/archive` · `/unarchive` | Só admin. Projetos não são apagados. Arquivado é **somente leitura** para as tarefas |
 | `POST /api/projects/:projectId/tasks` | Cria no fim da coluna. Recusa projeto arquivado (`409 PROJECT_ARCHIVED`) |
 | `GET /api/projects/:projectId/tasks` | Filtros: `status`, `priority`, `assigneeId`, `dueFrom`, `dueTo`, `search` |
+| `GET /api/tasks/my` | Lista tarefas atribuídas ao usuário autenticado em todos os projetos do workspace ativo; aceita os mesmos filtros da listagem por projeto (o responsável é sempre o usuário autenticado) |
 | `GET` · `PATCH` · `DELETE /api/tasks/:id` | Mudar o status leva ao fim da nova coluna e ajusta `completedAt`. `PATCH` e `DELETE` recusam projeto arquivado (`409 PROJECT_ARCHIVED`) |
 
 Quem escrever em tarefas (ex.: a rota de mover da Pessoa 3) segue a mesma regra de projeto arquivado.

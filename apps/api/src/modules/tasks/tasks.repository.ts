@@ -24,7 +24,16 @@ export class TasksRepository {
   }
 
   async list(workspaceId: string, projectId: string, filters: TaskFilters): Promise<TaskRow[]> {
-    const where: (SQL | undefined)[] = [eq(projects.workspaceId, workspaceId), eq(tasks.projectId, projectId)];
+    return this.selectTasks([eq(projects.workspaceId, workspaceId), eq(tasks.projectId, projectId)], filters);
+  }
+
+  /** Lista tarefas atribuídas ao usuário em todos os projetos do workspace. */
+  async listAssignedToUser(workspaceId: string, userId: string, filters: TaskFilters): Promise<TaskRow[]> {
+    return this.selectTasks([eq(projects.workspaceId, workspaceId), eq(tasks.assigneeId, userId)], filters);
+  }
+
+  private async selectTasks(scope: (SQL | undefined)[], filters: TaskFilters): Promise<TaskRow[]> {
+    const where = [...scope];
     if (filters.status?.length) where.push(inArray(tasks.status, filters.status));
     if (filters.priority?.length) where.push(inArray(tasks.priority, filters.priority));
     if (filters.assigneeId?.length) where.push(inArray(tasks.assigneeId, filters.assigneeId));

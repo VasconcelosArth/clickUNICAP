@@ -31,6 +31,7 @@ describe('TasksService', () => {
   const repo = {
     insert: jest.fn(),
     list: jest.fn(),
+    listAssignedToUser: jest.fn(),
     findById: jest.fn(),
     maxPosition: jest.fn(),
     update: jest.fn(),
@@ -181,6 +182,15 @@ describe('TasksService', () => {
   it('findOne devolve null fora do workspace', async () => {
     repo.findById.mockResolvedValue(undefined);
     await expect(service.findOne('w1', 't1')).resolves.toBeNull();
+  });
+
+  it('lista as tarefas atribuídas ao usuário no workspace usando o filtro recebido', async () => {
+    repo.listAssignedToUser.mockResolvedValue([task({ assigneeId: 'u1' })]);
+    const filters = { search: 'docs' };
+    await expect(service.listAssignedToUser('w1', 'u1', filters)).resolves.toMatchObject([
+      { id: 't1', assigneeId: 'u1' },
+    ]);
+    expect(repo.listAssignedToUser).toHaveBeenCalledWith('w1', 'u1', filters);
   });
 
   it('delete confere o workspace antes de apagar', async () => {

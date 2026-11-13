@@ -52,6 +52,16 @@ export class ProjectTasksController {
 export class TasksController {
   constructor(private readonly service: TasksService) {}
 
+  @Get('my')
+  @ZodResponse(z.array(taskSchema))
+  listMine(
+    @CurrentUser() user: AuthUser,
+    @CurrentWorkspace() workspaceId: string,
+    @Query(new ZodValidationPipe(taskFiltersSchema)) filters: TaskFilters,
+  ) {
+    return this.service.listAssignedToUser(workspaceId, user.id, filters);
+  }
+
   @Get(':id')
   @ZodResponse(taskSchema)
   get(@CurrentWorkspace() workspaceId: string, @Param('id', ParseUUIDPipe) id: string) {

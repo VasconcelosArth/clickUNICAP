@@ -66,6 +66,10 @@ export class TasksService {
     return (await this.repo.list(workspaceId, projectId, filters)).map(toTaskDto);
   }
 
+  async listAssignedToUser(workspaceId: string, userId: string, filters: TaskFilters): Promise<Task[]> {
+    return (await this.repo.listAssignedToUser(workspaceId, userId, filters)).map(toTaskDto);
+  }
+
   /** Para outros módulos: devolve null se a tarefa não existir neste workspace. */
   async findOne(workspaceId: string, taskId: string): Promise<Task | null> {
     const row = await this.repo.findById(workspaceId, taskId);
