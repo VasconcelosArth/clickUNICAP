@@ -1,11 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { CreateTaskInput, Task, TaskFilters, TaskStatus, UpdateTaskInput } from '@clickunicap/shared';
+import type {
+  CreateTaskInput,
+  Task,
+  TaskFilters,
+  TaskStatus,
+  UpdateTaskInput,
+  MoveTaskInput,
+} from '@clickunicap/shared';
 import { ConflictError, DomainError, NotFoundError } from '@/core/errors';
 import { DomainEvents, type TaskAssignedPayload, type TaskStatusChangedPayload } from '@/core/events';
 import { ProjectsService } from '@/modules/projects/projects.service';
 import { WorkspacesService } from '@/modules/workspaces/workspaces.service';
 import { type NewTaskRow, type TaskRow, TasksRepository } from './tasks.repository';
+import { placeInColumn } from './utils/position';
 
 export interface TaskContext {
   userId: string;
@@ -112,6 +120,48 @@ export class TasksService {
       this.events.emit(DomainEvents.TaskStatusChanged, payload);
     }
     return toTaskDto(row);
+  }
+
+  /**
+   * Move a tarefa no Kanban: pode mudar de coluna (status) e/ou de lugar dentro dela.
+   * Os vizinhos informados dizem onde ela cai. Sem vizinhos, vai para o fim da coluna.
+   */
+  async move(ctx: TaskContext, taskId: string, input: MoveTaskInput): Promise<Task> {
+    const current = await this.mustFind(ctx.workspaceId, taskId);
+    await this.assertNotArchived(ctx.workspaceId, current.projectId);
+    if (input.beforeTaskId === taskId || input.afterTaskId === taskId) {
+      throw new DomainError('A tarefa não pode ser vizinha de si mesma', 'INVALID_NEIGHBOR', 400);
+    }
+
+    const result = await this.repo.moveTask(ctx.workspaceId, taskId, input.status, (task, column) => {
+      const placement = placeInColumn(
+        column.filter((t) => t.id !== task.id),
+        input,
+      );
+      const statusChanged = task.status !== input.status;
+      return {
+        patch: {
+          status: input.status,
+          position: placement.position,
+          ...(statusChanged ? { completedAt: input.status === 'done' ? new Date() : null } : {}),
+        },
+        renumber: placement.renumber,
+      };
+    });
+    if (!result) throw new NotFoundError('Tarefa', taskId);
+
+    const { before, after } = result;
+    if (before.status !== after.status) {
+      const payload: TaskStatusChangedPayload = {
+        taskId: after.id,
+        from: before.status,
+        to: after.status,
+        by: ctx.userId,
+        workspaceId: ctx.workspaceId,
+      };
+      this.events.emit(DomainEvents.TaskStatusChanged, payload);
+    }
+    return toTaskDto(after);
   }
 
   async delete(workspaceId: string, taskId: string): Promise<void> {

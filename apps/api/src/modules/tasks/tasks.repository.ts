@@ -7,6 +7,16 @@ import { projects, tasks } from '@/core/database/schema';
 export type TaskRow = typeof tasks.$inferSelect;
 export type NewTaskRow = typeof tasks.$inferInsert;
 
+export interface MovePlan {
+  patch: Partial<NewTaskRow>;
+  renumber: { id: string; position: number }[];
+}
+
+export interface MoveResult {
+  before: TaskRow;
+  after: TaskRow;
+}
+
 /** Busca literal: % e _ digitados pelo usuário não funcionam como curinga. */
 export function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -67,6 +77,59 @@ export class TasksRepository {
       .where(and(this.inWorkspace(workspaceId), eq(tasks.id, id)))
       .returning();
     return row;
+  }
+
+  /**
+   * Move a tarefa numa transação. `plan` recebe a linha atual e a coluna de destino (já travadas) e
+   * devolve o que gravar. A regra de posição fica no service; aqui só há SQL e atomicidade.
+   * Trava o projeto inteiro: duas movimentações do mesmo projeto rodam uma após a outra.
+   */
+  async moveTask(
+    workspaceId: string,
+    id: string,
+    targetStatus: TaskStatus,
+    plan: (current: TaskRow, column: TaskRow[]) => MovePlan,
+  ): Promise<MoveResult | undefined> {
+    const found = await this.findById(workspaceId, id);
+    if (!found) return undefined;
+
+    return this.db.transaction(async (tx) => {
+      await tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.id, found.projectId), eq(projects.workspaceId, workspaceId)))
+        .for('update');
+
+      const [current] = await tx
+        .select()
+        .from(tasks)
+        .where(and(this.inWorkspace(workspaceId), eq(tasks.id, id)))
+        .limit(1);
+      if (!current) return undefined;
+
+      const column = await tx
+        .select()
+        .from(tasks)
+        .where(
+          and(this.inWorkspace(workspaceId), eq(tasks.projectId, current.projectId), eq(tasks.status, targetStatus)),
+        )
+        .orderBy(asc(tasks.position));
+
+      const { patch, renumber } = plan(current, column);
+      for (const r of renumber) {
+        await tx
+          .update(tasks)
+          .set({ position: r.position })
+          .where(and(this.inWorkspace(workspaceId), eq(tasks.id, r.id)));
+      }
+      const [after] = await tx
+        .update(tasks)
+        .set(patch)
+        .where(and(this.inWorkspace(workspaceId), eq(tasks.id, id)))
+        .returning();
+      if (!after) throw new Error('Falha ao mover tarefa');
+      return { before: current, after };
+    });
   }
 
   async delete(workspaceId: string, id: string): Promise<void> {

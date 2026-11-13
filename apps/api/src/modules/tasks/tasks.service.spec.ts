@@ -34,6 +34,7 @@ describe('TasksService', () => {
     findById: jest.fn(),
     maxPosition: jest.fn(),
     update: jest.fn(),
+    moveTask: jest.fn(),
     delete: jest.fn(),
   };
   const projects = { get: jest.fn() };
@@ -162,6 +163,109 @@ describe('TasksService', () => {
       projects.get.mockResolvedValue({ id: 'p1', archivedAt: now.toISOString() });
       await expect(service.update(ctx, 't1', { title: 'x' })).rejects.toMatchObject({ code: 'PROJECT_ARCHIVED' });
       expect(repo.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('move', () => {
+    /** Simula o repository: roda o `plan` do service sobre a coluna dada, como faria dentro da transação. */
+    const runMove = (current: TaskRow, column: TaskRow[]) => {
+      repo.findById.mockResolvedValue(current);
+      repo.moveTask.mockImplementation(async (_ws, _id, _status, plan) => {
+        const { patch } = plan(current, column);
+        return { before: current, after: task({ ...current, ...patch }) };
+      });
+    };
+    const colTask = (id: string, position: number, over: Partial<TaskRow> = {}) => task({ id, position, ...over });
+
+    it('troca de coluna: muda status, posiciona entre os vizinhos, marca completedAt e emite evento', async () => {
+      const current = task({ id: 't1', status: 'todo', position: 1 });
+      runMove(current, [colTask('a', 1, { status: 'in_progress' }), colTask('b', 2, { status: 'in_progress' })]);
+
+      const moved = await service.move(ctx, 't1', {
+        status: 'in_progress',
+        beforeTaskId: 'a',
+        afterTaskId: 'b',
+      });
+
+      expect(moved).toMatchObject({ status: 'in_progress', position: 1.5 });
+      expect(moved.completedAt).toBeNull();
+      expect(events.emit).toHaveBeenCalledWith(
+        DomainEvents.TaskStatusChanged,
+        expect.objectContaining({ taskId: 't1', from: 'todo', to: 'in_progress', by: 'u1', workspaceId: 'w1' }),
+      );
+    });
+
+    it('concluir pelo Kanban marca completedAt', async () => {
+      const current = task({ id: 't1', status: 'in_progress' });
+      runMove(current, []);
+      const moved = await service.move(ctx, 't1', { status: 'done', beforeTaskId: null, afterTaskId: null });
+      expect(moved.status).toBe('done');
+      expect(moved.completedAt).not.toBeNull();
+    });
+
+    it('reabrir pelo Kanban limpa completedAt', async () => {
+      const current = task({ id: 't1', status: 'done', completedAt: now });
+      runMove(current, []);
+      const moved = await service.move(ctx, 't1', { status: 'todo', beforeTaskId: null, afterTaskId: null });
+      expect(moved.completedAt).toBeNull();
+    });
+
+    it('reordenar na mesma coluna: sem evento e sem mudar completedAt', async () => {
+      const current = task({ id: 't1', status: 'todo', position: 1 });
+      runMove(current, [colTask('t1', 1), colTask('a', 2), colTask('b', 3)]);
+
+      const moved = await service.move(ctx, 't1', { status: 'todo', beforeTaskId: 'a', afterTaskId: 'b' });
+
+      expect(moved.position).toBe(2.5);
+      expect(events.emit).not.toHaveBeenCalled();
+    });
+
+    it('sem vizinhos entra no fim da coluna', async () => {
+      const current = task({ id: 't1', status: 'todo', position: 1 });
+      runMove(current, [colTask('a', 1), colTask('b', 4)]);
+      const moved = await service.move(ctx, 't1', { status: 'todo', beforeTaskId: null, afterTaskId: null });
+      expect(moved.position).toBe(5);
+    });
+
+    it('tarefa de outro workspace → NotFoundError, sem tocar no repository de escrita', async () => {
+      repo.findById.mockResolvedValue(undefined);
+      await expect(
+        service.move(ctx, 't1', { status: 'done', beforeTaskId: null, afterTaskId: null }),
+      ).rejects.toBeInstanceOf(NotFoundError);
+      expect(repo.moveTask).not.toHaveBeenCalled();
+    });
+
+    it('projeto arquivado → PROJECT_ARCHIVED, sem mover', async () => {
+      repo.findById.mockResolvedValue(task());
+      projects.get.mockResolvedValue({ id: 'p1', archivedAt: now.toISOString() });
+      await expect(
+        service.move(ctx, 't1', { status: 'done', beforeTaskId: null, afterTaskId: null }),
+      ).rejects.toMatchObject({
+        code: 'PROJECT_ARCHIVED',
+      });
+      expect(repo.moveTask).not.toHaveBeenCalled();
+    });
+
+    it('a tarefa não pode ser vizinha de si mesma → INVALID_NEIGHBOR', async () => {
+      repo.findById.mockResolvedValue(task());
+      await expect(
+        service.move(ctx, 't1', { status: 'todo', beforeTaskId: 't1', afterTaskId: null }),
+      ).rejects.toMatchObject({
+        code: 'INVALID_NEIGHBOR',
+        statusCode: 400,
+      });
+      expect(repo.moveTask).not.toHaveBeenCalled();
+    });
+
+    it('vizinho desatualizado vira POSITION_CHANGED (erro do plano propagado)', async () => {
+      const current = task({ id: 't1', status: 'todo', position: 1 });
+      runMove(current, [colTask('a', 1), colTask('b', 2), colTask('c', 3)]);
+      await expect(
+        service.move(ctx, 't1', { status: 'todo', beforeTaskId: 'a', afterTaskId: 'c' }),
+      ).rejects.toMatchObject({
+        code: 'POSITION_CHANGED',
+        statusCode: 409,
+      });
     });
   });
 
