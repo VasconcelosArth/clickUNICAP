@@ -145,6 +145,42 @@ describe('Projetos e tarefas (e2e)', () => {
     await agent.get(`/api/projects/${p.id}/tasks?status=xpto`).set(h).expect(422);
   });
 
+  it('Minhas tarefas combina filtros, atravessa projetos e respeita o workspace ativo', async () => {
+    const { agent, user, workspace } = await registerUserWithWorkspace(app);
+    const h = { 'X-Workspace-Id': workspace.id };
+    const firstProject = await createProject(agent, workspace.id);
+    const secondProject = await createProject(agent, workspace.id, 'Outro projeto');
+    await createTask(agent, workspace.id, firstProject.id, { title: 'Minha pendente', assigneeId: user.id });
+    await createTask(agent, workspace.id, secondProject.id, {
+      title: 'Minha concluída',
+      assigneeId: user.id,
+      status: 'done',
+    });
+    await createTask(agent, workspace.id, firstProject.id, { title: 'Sem responsável' });
+
+    const mine = await agent.get('/api/tasks/my').set(h).expect(200);
+    expect((mine.body as { title: string }[]).map((task) => task.title).sort()).toEqual([
+      'Minha concluída',
+      'Minha pendente',
+    ]);
+    const filtered = await agent.get('/api/tasks/my?status=done').set(h).expect(200);
+    expect((filtered.body as { title: string }[]).map((task) => task.title)).toEqual(['Minha concluída']);
+
+    const other = await registerUserWithWorkspace(app);
+    const otherProject = await createProject(other.agent, other.workspace.id);
+    await createTask(other.agent, other.workspace.id, otherProject.id, {
+      title: 'Outra workspace',
+      assigneeId: other.user.id,
+    });
+    expect(
+      (await agent
+        .get('/api/tasks/my')
+        .set(h)
+        .expect(200)
+        .then((res) => res.body)) as unknown[],
+    ).toHaveLength(2);
+  });
+
   it('membro comum não arquiva projeto (403), mas cria tarefa', async () => {
     const { agent: dono, workspace } = await registerUserWithWorkspace(app);
     const p = await createProject(dono, workspace.id);
