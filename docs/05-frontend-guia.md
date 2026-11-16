@@ -8,8 +8,9 @@ Bulletproof React: cada funcionalidade é uma pasta autocontida, e o código com
 ```
 apps/web/src/
 ├── main.tsx
+├── index.css                   # tokens do tema (ver 11-design-guia.md)
 ├── app/                        # "cola" da aplicação (dono: Pessoa 1)
-│   ├── providers.tsx           # QueryClientProvider, Router, Theme, Toaster
+│   ├── providers.tsx           # QueryClientProvider, Router, tema e fim de sessão
 │   ├── router.tsx              # todas as rotas; carrega as páginas das features com lazy()
 │   ├── layouts/
 │   │   ├── AppLayout.tsx       # menu lateral + topo + <Outlet/>
@@ -30,8 +31,10 @@ apps/web/src/
 ├── lib/
 │   ├── api-client.ts           # fetch configurado (baseURL, cookies, X-Workspace-Id, erros)
 │   ├── query-client.ts
+│   ├── routes.ts               # todos os caminhos do app
+│   ├── tasks.ts                # regras puras de tarefa usadas por várias features
 │   └── utils.ts                # cn(), formatDate()...
-├── hooks/                      # hooks genéricos (useDebounce, useDisclosure)
+├── hooks/                      # o que várias features usam (sessão, workspace ativo, membros, filtros)
 ├── stores/                     # Zustand: só estado de UI global (ex.: workspace ativo, sidebar aberta)
 ├── mocks/                      # MSW: browser.ts, server.ts (testes), handlers.ts que junta os das features
 └── test/                       # setup do Vitest, render com providers
@@ -52,7 +55,7 @@ features/comments/
 │   └── CommentForm.test.tsx
 ├── hooks/                       # hooks específicos da feature (opcional)
 ├── mocks/
-│   └── comments.handlers.ts     # handlers MSW para trabalhar sem backend
+│   └── comments.handlers.ts     # handlers MSW de rotas que já existem
 ├── pages/                       # telas inteiras (quando a feature tem rota)
 ├── utils/                       # funções puras + testes
 └── index.ts                     # API PÚBLICA da feature: só o que o app/ pode usar
@@ -183,7 +186,10 @@ export const commentsSlot: TaskSlot = { id: 'comments', region: 'activity', orde
 
 A `TaskDetailPage` renderiza, em cada região, os slots daquela região ordenados por `order`.
 
-## Trabalhando sem backend (MSW)
+## Mocks de rotas que já existem (MSW)
+
+O MSW serve para os testes e para rodar a tela sem subir a API, sempre simulando rotas **já implementadas**. Mock não
+libera tela de rota que ainda não existe (ver [Rotas](#rotas)).
 
 1. Crie `features/<feature>/mocks/<feature>.handlers.ts` com respostas usando dados que **passam no schema do shared**.
 2. Adicione os handlers em `src/mocks/handlers.ts`.
@@ -195,6 +201,7 @@ A `TaskDetailPage` renderiza, em cada região, os slots daquela região ordenado
 - `components/ui` é o design system. Antes de criar um botão, veja se já existe.
 - Componentes de UI **não buscam dados** e **não conhecem features**: recebem props.
 - Estilo com Tailwind; para juntar classes condicionais use `cn()` de `lib/utils`.
+- O visual de cada componente e de cada tela está no [guia de design](11-design-guia.md).
 - **Acessibilidade obrigatória:** todo `input` tem `label`; botões só com ícone têm `aria-label`; modal prende o foco;
   o Kanban precisa funcionar no teclado (o `@dnd-kit` tem suporte).
 
@@ -202,7 +209,12 @@ A `TaskDetailPage` renderiza, em cada região, os slots daquela região ordenado
 
 ```
 /login  /register  /forgot-password
-/w/:workspaceId                         → redireciona para o primeiro projeto
+/reset-password?token=...               → link do e-mail de recuperação (URL gerada pelo backend)
+/invites/accept?token=...               → link do e-mail de convite (URL gerada pelo backend; exige login)
+/workspaces                             → Listar e criar workspaces (Pessoa 1)
+/profile                                → Perfil e sair da conta (Pessoa 1)
+/w/:workspaceId                         → redireciona para o primeiro projeto, na visão Kanban
+/w/:workspaceId/projects                → Projetos e arquivados (Pessoa 1)
 /w/:workspaceId/my-tasks                → Minhas tarefas (Pessoa 2)
 /w/:workspaceId/p/:projectId/list       → Lista (Pessoa 2)
 /w/:workspaceId/p/:projectId/board      → Kanban (Pessoa 3)
@@ -214,12 +226,31 @@ A `TaskDetailPage` renderiza, em cada região, os slots daquela região ordenado
 
 Cada página é carregada com `lazy()` para que uma feature pesada (Gantt) não deixe o app todo lento.
 
+**Só entra no frontend o que já tem rota implementada no backend.** A lista acima e o protótipo mostram o produto
+completo; antes de criar uma tela, confira a rota no Swagger (`/api/docs`). Hoje ficam de fora, sem link, aba ou botão
+desativado:
+
+| Fora por enquanto | O que falta no backend | Dono |
+|---|---|---|
+| Minhas tarefas | Listagem de tarefas entre projetos | Pessoa 2 |
+| Arrastar cartão no Kanban | Rota de mover e reordenar (trocar o status pelo `PATCH /tasks/:id` já funciona) | Pessoa 3 |
+| Subtarefas e comentários | Módulos `subtasks` e `comments` | Pessoa 4 |
+| Notificações | Módulo `notifications` | Pessoa 5 |
+| Anexos | Módulo `attachments` | Pessoa 7 |
+| Campos personalizados | Módulo `custom-fields` | Pessoa 8 |
+| Dependências e Gantt | Módulo `dependencies` | Pessoa 9 |
+| Controle de tempo | Módulo `time-tracking` | Pessoa 10 |
+
+Quando a rota ficar pronta, tire o item desta tabela no mesmo PR da tela.
+
 ## Checklist do PR de frontend
 
 - [ ] A feature não importa outra feature (exceto a API pública de `tasks`).
+- [ ] Só usa rotas que já existem no backend.
 - [ ] Dados via TanStack Query; filtros na URL.
 - [ ] Tipos e validação vindos do `@clickunicap/shared`.
 - [ ] Estados de **loading, erro e vazio** tratados em toda tela.
 - [ ] Teste de componente com Testing Library + MSW.
 - [ ] Acessível no teclado; inputs com label.
+- [ ] Checklist visual do [guia de design](11-design-guia.md#checklist-visual-do-pr) conferido.
 - [ ] Nenhum `any`, nenhum `console.log`, nenhum token em `localStorage`.

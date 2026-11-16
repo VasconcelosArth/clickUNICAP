@@ -3,3 +3,4 @@ coverage
 pnpm-lock.yaml
 **/migrations/**
 *.md
+mockServiceWorker.js

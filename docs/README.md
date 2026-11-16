@@ -20,6 +20,7 @@ Esta pasta é a **fonte da verdade** do projeto: antes de escrever código, leia
 | 08 | [Boas práticas e fluxo de trabalho](08-boas-praticas.md) | Git, branches, commits, PR, revisão, Definição de Pronto | Todos |
 | 09 | [Guia para desenvolvimento com IA](09-guia-ia.md) | Como usar IA sem quebrar a arquitetura | Quem usa IA |
 | 10 | [Ambiente local e Docker](10-ambiente-local.md) | Como subir banco, API e web na sua máquina | Todos |
+| 11 | [Guia de design](11-design-guia.md) | Cores, tipografia, componentes e o visual de cada tela | Quem mexe no `apps/web` |
 | — | [Decisões de arquitetura (ADRs)](adr/) | Por que escolhemos cada coisa | Quando quiser mudar algo grande |
 
 ## Regras de ouro (resumo de tudo)
