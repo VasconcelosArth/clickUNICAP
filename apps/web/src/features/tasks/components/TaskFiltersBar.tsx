@@ -6,7 +6,8 @@ import { useWorkspaceMembers } from '@/hooks/useWorkspaceMembers';
 
 const SEARCH_DELAY_MS = 300;
 
-export function TaskFiltersBar() {
+/** `showAssignee={false}` em Minhas tarefas, onde o responsável é sempre quem está logado. */
+export function TaskFiltersBar({ showAssignee = true }: { showAssignee?: boolean }) {
   const { search, priority, assigneeId, hasFilters, setFilter, clearFilters } = useTaskFilters();
   const { data: members = [] } = useWorkspaceMembers();
   const [term, setTerm] = useState(search);
@@ -55,20 +56,22 @@ export function TaskFiltersBar() {
           )}
         </FormField>
       </div>
-      <div className="basis-52">
-        <FormField label="Responsável">
-          {(control) => (
-            <Select {...control} value={assigneeId} onChange={(event) => setFilter('assigneeId', event.target.value)}>
-              <option value="">Todos</option>
-              {members.map((member) => (
-                <option key={member.userId} value={member.userId}>
-                  {member.name}
-                </option>
-              ))}
-            </Select>
-          )}
-        </FormField>
-      </div>
+      {showAssignee && (
+        <div className="basis-52">
+          <FormField label="Responsável">
+            {(control) => (
+              <Select {...control} value={assigneeId} onChange={(event) => setFilter('assigneeId', event.target.value)}>
+                <option value="">Todos</option>
+                {members.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FormField>
+        </div>
+      )}
       {hasFilters && (
         <Button variant="secondary" onClick={clear}>
           Limpar filtros

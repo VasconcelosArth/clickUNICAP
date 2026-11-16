@@ -23,6 +23,7 @@ const AcceptInvitePage = lazy(() => workspaces().then((m) => ({ default: m.Accep
 const MembersPage = lazy(() => workspaces().then((m) => ({ default: m.MembersPage })));
 const BoardPage = lazy(() => import('@/features/kanban').then((m) => ({ default: m.BoardPage })));
 const TaskListPage = lazy(() => import('@/features/task-list').then((m) => ({ default: m.TaskListPage })));
+const MyTasksRoute = lazy(() => import('./layouts/MyTasksRoute').then((m) => ({ default: m.MyTasksRoute })));
 const ProjectLayout = lazy(() => import('./layouts/ProjectLayout').then((m) => ({ default: m.ProjectLayout })));
 const TaskDetailRoute = lazy(() => import('./layouts/TaskDetailRoute').then((m) => ({ default: m.TaskDetailRoute })));
 
@@ -61,6 +62,7 @@ export function AppRoutes() {
             <Route element={<AppLayout />}>
               <Route index element={<WorkspaceIndexRedirect />} />
               <Route path="projects" element={<ProjectsPage />} />
+              <Route path="my-tasks" element={<MyTasksRoute />} />
               <Route path="settings/members" element={<MembersPage />} />
               <Route path="p/:projectId" element={<ProjectLayout />}>
                 <Route index element={<ProjectIndexRedirect />} />

@@ -17,6 +17,16 @@ describe('BoardPage', () => {
     expect(within(column).getByText('Urgente')).toBeInTheDocument();
   });
 
+  it('o cartão é um item arrastável, com instruções para o teclado', async () => {
+    renderWithProviders(<BoardPage />, options);
+
+    const card = await screen.findByRole('listitem', { name: task.title });
+    expect(card).toHaveAttribute('aria-roledescription', 'cartão arrastável');
+    expect(card).toHaveAttribute('tabindex', '0');
+    expect(within(card).getByRole('link', { name: task.title })).toBeInTheDocument();
+    expect(screen.getByText(/pressione espaço ou Enter/)).toBeInTheDocument();
+  });
+
   it('mostra as colunas vazias', async () => {
     renderWithProviders(<BoardPage />, options);
 

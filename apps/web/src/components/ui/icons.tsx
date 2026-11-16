@@ -26,6 +26,14 @@ export function PlusIcon(props: IconProps) {
   );
 }
 
+export function CheckListIcon(props: IconProps) {
+  return (
+    <Icon16 {...props}>
+      <path d="M6.7 2.3a1 1 0 0 1 0 1.4l-3 3a1 1 0 0 1-1.4 0l-1.5-1.5a1 1 0 0 1 1.4-1.4l.8.8 2.3-2.3a1 1 0 0 1 1.4 0ZM9 4a1 1 0 0 1 1-1h5a1 1 0 1 1 0 2h-5a1 1 0 0 1-1-1ZM6.7 9.3a1 1 0 0 1 0 1.4l-3 3a1 1 0 0 1-1.4 0l-1.5-1.5a1 1 0 0 1 1.4-1.4l.8.8 2.3-2.3a1 1 0 0 1 1.4 0ZM9 12a1 1 0 0 1 1-1h5a1 1 0 1 1 0 2h-5a1 1 0 0 1-1-1Z" />
+    </Icon16>
+  );
+}
+
 export function FolderIcon(props: IconProps) {
   return (
     <Icon16 {...props}>

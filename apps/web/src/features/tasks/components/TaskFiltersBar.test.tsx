@@ -13,6 +13,13 @@ describe('TaskFiltersBar', () => {
     expect(screen.getByRole('button', { name: 'Limpar filtros' })).toBeInTheDocument();
   });
 
+  it('esconde o filtro de responsável quando pedido', () => {
+    renderWithProviders(<TaskFiltersBar showAssignee={false} />);
+
+    expect(screen.getByLabelText('Prioridade')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Responsável')).not.toBeInTheDocument();
+  });
+
   it('não oferece limpar sem filtros', () => {
     renderWithProviders(<TaskFiltersBar />);
 

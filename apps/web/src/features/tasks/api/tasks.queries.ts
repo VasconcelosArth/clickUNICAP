@@ -12,6 +12,11 @@ export function useTasks(projectId: string, filters: TaskFilters = NO_FILTERS) {
   });
 }
 
+/** Minhas tarefas: a chave fica sob `taskKeys.all`, então qualquer escrita em tarefa revalida a lista. */
+export function useMyTasks(filters: TaskFilters = NO_FILTERS) {
+  return useQuery({ queryKey: taskKeys.mine(filters), queryFn: () => tasksApi.listMine(filters) });
+}
+
 export function useTask(taskId: string) {
   return useQuery({ queryKey: taskKeys.detail(taskId), queryFn: () => tasksApi.get(taskId) });
 }

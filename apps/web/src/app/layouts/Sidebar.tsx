@@ -1,6 +1,15 @@
 import { useEffect, type ComponentType, type ReactNode, type SVGProps } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { ChevronDownIcon, ChevronsIcon, FolderIcon, IconButton, LinkButton, Logo, UsersIcon } from '@/components/ui';
+import {
+  CheckListIcon,
+  ChevronDownIcon,
+  ChevronsIcon,
+  FolderIcon,
+  IconButton,
+  LinkButton,
+  Logo,
+  UsersIcon,
+} from '@/components/ui';
 import { useProjects } from '@/features/projects';
 import { useCurrentWorkspace } from '@/hooks/useCurrentWorkspace';
 import { routes } from '@/lib/routes';
@@ -130,6 +139,11 @@ export function Sidebar() {
 
         {workspaceId && (
           <nav aria-label="Navegação" className="flex flex-col gap-8">
+            <div>
+              <SideLink to={routes.myTasks(workspaceId)} icon={CheckListIcon}>
+                Minhas tarefas
+              </SideLink>
+            </div>
             <ProjectLinks workspaceId={workspaceId} />
             <div>
               <h2 className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 pl-3 mb-3">Workspace</h2>

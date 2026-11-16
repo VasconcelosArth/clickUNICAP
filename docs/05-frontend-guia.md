@@ -121,13 +121,15 @@ export const taskKeys = {
 };
 ```
 
-> Esta é a **única exceção** à regra "features não se importam": `taskKeys`, `useTasks` e `useUpdateTask` são a
+> Esta é a **única exceção** à regra "features não se importam": `taskKeys`, `useTasks`, `useMyTasks` e `useUpdateTask` são a
 > API pública do núcleo, e as views usam essa API.
 
 ### Atualização otimista (Kanban, checkbox de subtarefa)
 
 Para interações que precisam parecer instantâneas, use `onMutate` para atualizar o cache, `onError` para
-desfazer e `onSettled` para revalidar. Exemplo completo em `features/kanban/api/kanban.queries.ts` (Pessoa 3).
+desfazer e `onSettled` para revalidar. Exemplo completo em `features/kanban/api/kanban.queries.ts` (Pessoa 3): o `useMoveTask` move o cartão em todas as
+listagens do projeto e desfaz se a API recusar. Com filtro ativo, o Kanban manda só um vizinho para a rota de mover,
+porque a coluna na tela não tem todas as tarefas.
 
 ## Estado de UI
 
@@ -203,7 +205,8 @@ libera tela de rota que ainda não existe (ver [Rotas](#rotas)).
 - Estilo com Tailwind; para juntar classes condicionais use `cn()` de `lib/utils`.
 - O visual de cada componente e de cada tela está no [guia de design](11-design-guia.md).
 - **Acessibilidade obrigatória:** todo `input` tem `label`; botões só com ícone têm `aria-label`; modal prende o foco;
-  o Kanban precisa funcionar no teclado (o `@dnd-kit` tem suporte).
+  o Kanban precisa funcionar no teclado: com o `@dnd-kit`, o foco no cartão permite pegar com espaço ou Enter, mover
+  com as setas e cancelar com Esc.
 
 ## Rotas
 
@@ -232,8 +235,6 @@ desativado:
 
 | Fora por enquanto | O que falta no backend | Dono |
 |---|---|---|
-| Minhas tarefas | Listagem de tarefas entre projetos | Pessoa 2 |
-| Arrastar cartão no Kanban | Rota de mover e reordenar (trocar o status pelo `PATCH /tasks/:id` já funciona) | Pessoa 3 |
 | Subtarefas e comentários | Módulos `subtasks` e `comments` | Pessoa 4 |
 | Notificações | Módulo `notifications` | Pessoa 5 |
 | Anexos | Módulo `attachments` | Pessoa 7 |

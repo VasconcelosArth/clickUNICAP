@@ -9,6 +9,7 @@ export const routes = {
   profile: '/profile',
   workspace: (workspaceId: string) => `/w/${workspaceId}`,
   projects: (workspaceId: string) => `/w/${workspaceId}/projects`,
+  myTasks: (workspaceId: string) => `/w/${workspaceId}/my-tasks`,
   project: (workspaceId: string, projectId: string) => `/w/${workspaceId}/p/${projectId}`,
   board: (workspaceId: string, projectId: string) => `/w/${workspaceId}/p/${projectId}/board`,
   list: (workspaceId: string, projectId: string) => `/w/${workspaceId}/p/${projectId}/list`,

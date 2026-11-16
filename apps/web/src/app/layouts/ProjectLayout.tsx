@@ -78,7 +78,7 @@ export function ProjectLayout() {
       <TaskSummaryCards projectId={projectId} />
       <ProjectViewTabs projectId={projectId} />
       <TaskFiltersBar key={projectId} />
-      <Outlet />
+      <Outlet context={{ archived }} />
       <NewTaskModal projectId={projectId} open={creating} onClose={() => setCreating(false)} />
     </Page>
   );

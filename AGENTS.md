@@ -15,7 +15,7 @@ a mesma API de tarefas. Referência do produto: [`docs/01-clickup-referencia.md`
 - ✅ Etapa 0 (fundação): monorepo, `packages/shared`, `apps/api` com core, as 17 tabelas e as migrations.
 - ✅ Base do backend (Pessoa 1): auth, users, workspaces, projects, tasks, eventos, Swagger, seed e CI.
 - ⏳ Etapa 1 (agora): backend das outras frentes (Pessoas 2 a 10).
-- ⏳ Etapa 2 (agora, em paralelo): frontend. O `apps/web` já tem o setup e as telas de autenticação, workspaces, membros, projetos, tarefas, Kanban e Lista. **Só entra no frontend o que já tem rota implementada no backend.**
+- ⏳ Etapa 2 (agora, em paralelo): frontend. O `apps/web` já tem o setup e as telas de autenticação, workspaces, membros, projetos, tarefas, Kanban (com arrastar e soltar), Lista e Minhas tarefas. **Só entra no frontend o que já tem rota implementada no backend.**
 
 ## Stack (não troque sem um ADR)
 
@@ -49,7 +49,7 @@ pnpm --filter api db:migrate
 3. **Rode os testes antes de commitar.** Se falhar, não commite; informe qual teste quebrou.
 4. Código em **inglês**; textos da UI, docs e commits em **português**. Conventional Commits.
 5. Proibido: `any`, `@ts-ignore`, `console.log` commitado, `process.env` fora de `core/config`, segredos no código.
-6. **Não adicione dependências** fora da stack sem pedir confirmação. As do Mosaic Lite já estão liberadas no `apps/web`: `tailwindcss`, `@tailwindcss/postcss`, `@tailwindcss/forms`, `postcss`, `vite`, `@vitejs/plugin-react`, `@radix-ui/react-popover`, `chart.js`, `chartjs-adapter-moment`, `moment`, `date-fns`, `react-day-picker`, `react-transition-group`, `clsx` e `tailwind-merge`.
+6. **Não adicione dependências** fora da stack sem pedir confirmação. As do Mosaic Lite já estão liberadas no `apps/web`: `tailwindcss`, `@tailwindcss/postcss`, `@tailwindcss/forms`, `postcss`, `vite`, `@vitejs/plugin-react`, `@radix-ui/react-popover`, `chart.js`, `chartjs-adapter-moment`, `moment`, `date-fns`, `react-day-picker`, `react-transition-group`, `clsx` e `tailwind-merge`. Para o Kanban: `@dnd-kit/core`, `@dnd-kit/sortable` e `@dnd-kit/utilities`.
 7. Mexa só nos arquivos do escopo pedido. `packages/shared`, `apps/api/src/core` e migrations existentes exigem cuidado extra: pergunte antes.
 
 ### Backend (`apps/api`) — detalhes em [`docs/04-backend-guia.md`](docs/04-backend-guia.md)
@@ -65,7 +65,7 @@ pnpm --filter api db:migrate
 
 ### Frontend (`apps/web`) — detalhes em [`docs/05-frontend-guia.md`](docs/05-frontend-guia.md)
 - Organização **por feature** em `src/features/<nome>/` (`api/`, `components/`, `hooks/`, `mocks/`, `pages/`, `index.ts`).
-- **Features não importam outras features** (exceção: a API pública de `features/tasks`: `taskKeys`, `useTasks`, `useUpdateTask`).
+- **Features não importam outras features** (exceção: a API pública de `features/tasks`: `taskKeys`, `useTasks`, `useMyTasks`, `useUpdateTask`).
 - Dados do servidor **só com TanStack Query** (nada de `useEffect` + `fetch`). HTTP só via `src/lib/api-client.ts`.
 - Filtros e abas na **URL**. Zustand só para estado global de UI.
 - A tela de detalhe da tarefa é estendida por **slots** (`src/app/slots/`), não editando o componente da base.
