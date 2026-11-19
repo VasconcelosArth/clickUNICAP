@@ -375,6 +375,22 @@ Eventos já emitidos: `task.assigned` e `task.status_changed`. Ainda não há ou
 Para o Swagger, use `@ZodBody(schema)` no body e `@ZodResponse(schema)` na resposta (`core/swagger/zod-body.ts`).
 Em testes e2e, use `createProject` e `createTask` de `test/utils/factories.ts`.
 
+### Rotas de dependências (já implementadas)
+
+Módulo `dependencies` (Pessoa 9). Todas pedem o header `X-Workspace-Id`. "A depende de B" = A fica esperando B terminar.
+
+| Rota | O que faz |
+|---|---|
+| `GET /api/tasks/:taskId/dependencies` | `{ blockedBy, blocking }`: as tarefas que esta espera e as que esperam por ela, com título, status e datas |
+| `POST /api/tasks/:taskId/dependencies` | Body `{ dependsOnTaskId }`. A tarefa passa a esperar a outra. Erros: `SELF_DEPENDENCY` (400), `DEPENDENCY_OTHER_PROJECT` (400, as duas precisam estar no mesmo projeto), `CIRCULAR_DEPENDENCY` (400), `DEPENDENCY_EXISTS` (409), `PROJECT_ARCHIVED` (409) |
+| `DELETE /api/tasks/:taskId/dependencies/:dependsOnTaskId` | Remove (204). Recusa projeto arquivado (409) |
+| `GET /api/projects/:projectId/dependencies` | Todas as dependências do projeto (pares `taskId` → `dependsOnTaskId`), para as setas do Gantt |
+
+A regra de ciclo é a função pura `wouldCreateCycle` (`modules/dependencies/utils/cycle.ts`). A gravação roda numa
+transação que trava o projeto, para que duas pessoas não fechem um ciclo ao mesmo tempo. Excluir uma tarefa apaga as
+dependências dela (`on delete cascade`). As dependências não impedem concluir uma tarefa: o detalhe da tarefa avisa
+quando ela está bloqueada e o Gantt avisa quando as datas entram em conflito.
+
 ### Rotas de workspaces (já implementadas)
 
 | Rota | Quem pode |

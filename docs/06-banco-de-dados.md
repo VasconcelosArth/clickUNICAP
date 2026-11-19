@@ -189,7 +189,7 @@ pnpm --filter api test:e2e
 O seed fica em `apps/api/src/core/database/seed.ts` e não faz nada se os dados já existirem. Cada frente adiciona seus dados a ele.
 
 `pnpm --filter api db:seed:demo` acrescenta dados fictícios mais próximos do uso real: 11 pessoas (mesma senha do seed),
-3 workspaces, 8 projetos (um arquivado), convites pendentes e tarefas com prazos calculados a partir do dia em que roda.
+3 workspaces, 8 projetos (um arquivado), convites pendentes, tarefas com prazos calculados a partir do dia em que roda e dependências entre elas (para o Gantt).
 Ana é dona do primeiro workspace e membro dos outros dois, para ver as duas permissões. O script fica em
 `seed-demo.ts`, só acrescenta e não faz nada se já tiver rodado.
 
