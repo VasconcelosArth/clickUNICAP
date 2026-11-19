@@ -59,6 +59,18 @@ describe('dados de demonstração', () => {
     }
   });
 
+  it('liga só tarefas do mesmo projeto, sem dependência de si mesma', () => {
+    for (const project of projects) {
+      const titles = new Set(project.tasks.map(([title]) => title));
+      for (const [waiting, blocker] of project.dependencies ?? []) {
+        expect([waiting, titles.has(waiting)]).toEqual([waiting, true]);
+        expect([blocker, titles.has(blocker)]).toEqual([blocker, true]);
+        expect(waiting).not.toBe(blocker);
+      }
+    }
+    expect(projects.some((project) => project.dependencies?.length)).toBe(true);
+  });
+
   it('usa cores no formato aceito pela API', () => {
     for (const project of projects) expect(project.color).toMatch(/^#[0-9a-fA-F]{6}$/);
   });

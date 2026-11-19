@@ -34,6 +34,8 @@ export interface DemoProject {
   color: string;
   archived?: boolean;
   tasks: DemoTaskSpec[];
+  /** [tarefa que espera, tarefa que bloqueia], pelos títulos. Aparecem como setas no Gantt. */
+  dependencies?: [waiting: string, blocker: string][];
 }
 
 export interface DemoWorkspace {
@@ -79,6 +81,12 @@ export const DEMO_WORKSPACES: DemoWorkspace[] = [
           ['Ajustar o SEO local', 'todo', 'medium', null, null, 18],
           ['Revisar a acessibilidade', 'todo', 'medium', 'carla', null, null],
         ],
+        dependencies: [
+          ['Definir o mapa do site', 'Levantar requisitos com a cliente'],
+          ['Criar o layout da página inicial', 'Escolher paleta e tipografia'],
+          ['Implementar o cardápio online', 'Definir o mapa do site'],
+          ['Integrar pedidos pelo WhatsApp', 'Implementar o cardápio online'],
+        ],
       },
       {
         name: 'Campanha de Natal',
@@ -111,6 +119,15 @@ export const DEMO_WORKSPACES: DemoWorkspace[] = [
           ['Escrever os termos de uso', 'todo', 'low', 'eduarda', null, 25],
           ['Testar com clientes reais', 'todo', 'medium', 'carla', null, 30],
           ['Publicar nas lojas de aplicativos', 'todo', 'medium', null, null, null],
+        ],
+        dependencies: [
+          ['Prototipar as telas principais', 'Mapear o fluxo do pedido'],
+          ['Criar a API de pedidos', 'Modelar o banco de dados'],
+          ['Criar a tela de acompanhamento', 'Criar a API de pedidos'],
+          ['Integrar o pagamento com Pix', 'Criar a API de pedidos'],
+          ['Testar com clientes reais', 'Integrar o pagamento com Pix'],
+          // Começa antes de a API terminar: o Gantt avisa o conflito de datas
+          ['Implementar o login por telefone', 'Criar a API de pedidos'],
         ],
       },
       {
