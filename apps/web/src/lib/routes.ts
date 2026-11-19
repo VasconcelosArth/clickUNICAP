@@ -13,6 +13,7 @@ export const routes = {
   project: (workspaceId: string, projectId: string) => `/w/${workspaceId}/p/${projectId}`,
   board: (workspaceId: string, projectId: string) => `/w/${workspaceId}/p/${projectId}/board`,
   list: (workspaceId: string, projectId: string) => `/w/${workspaceId}/p/${projectId}/list`,
+  gantt: (workspaceId: string, projectId: string) => `/w/${workspaceId}/p/${projectId}/gantt`,
   task: (workspaceId: string, taskId: string) => `/w/${workspaceId}/t/${taskId}`,
   members: (workspaceId: string) => `/w/${workspaceId}/settings/members`,
 };
