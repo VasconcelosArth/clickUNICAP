@@ -13,6 +13,7 @@ function ProjectViewTabs({ projectId }: { projectId: string }) {
   const tabs = [
     { label: 'Kanban', pathname: routes.board(workspaceId, projectId) },
     { label: 'Lista', pathname: routes.list(workspaceId, projectId) },
+    { label: 'Gantt', pathname: routes.gantt(workspaceId, projectId) },
   ];
 
   return (

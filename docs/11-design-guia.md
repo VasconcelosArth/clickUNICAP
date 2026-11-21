@@ -417,6 +417,21 @@ abaixo e estado vazio para quem ainda não tem workspace.
 - Cabeçalho de datas como rótulo de seção; linhas de grade `border-gray-100 dark:border-gray-700/60`.
 - Barra: `h-6 rounded-lg`, em `bg-gray-400` (`todo`), `bg-sky-500` (`in_progress`) ou `bg-green-500` (`done`).
 - Hoje: linha vertical `w-px bg-violet-500`. Dependências em SVG com `stroke-gray-400 dark:stroke-gray-500`.
+- Coluna das tarefas: `w-40 sm:w-64`, para sobrar linha do tempo em 375px. Cada linha tem o título (link para o
+  detalhe) e, abaixo, o período como informação auxiliar, ou **Sem datas**; tarefa vencida usa a cor de prazo vencido
+  com o texto **Vencida**. Tarefas sem datas ficam no fim, sem barra.
+- Dia de 32px e linha de 48px. Fim de semana com `bg-gray-50 dark:bg-gray-700/20`; o dia de hoje no cabeçalho em
+  `text-violet-700 dark:text-violet-400`.
+- Dependência com datas em conflito (a tarefa que espera começa antes do último dia da outra): seta `stroke-red-500` e,
+  no topo do Card, a lista em texto com o título em `text-sm font-medium text-red-800 dark:text-red-400`.
+
+**Dependências (detalhe da tarefa)**
+
+- Slot `sidebar`, rótulo de seção **Dependências**. Duas listas, **Esperando por** e **Bloqueando**, com título
+  (link), selo de status e IconButton de remover; lista vazia mostra **Nenhuma**.
+- Com tarefa esperada ainda não concluída: **Bloqueada: N tarefas ainda não foram concluídas.** na cor de erro.
+- Adicionar: Select da relação, Select da tarefa (só as do mesmo projeto ainda não ligadas) e botão `secondary` de
+  largura total. Grava na hora, sem esperar o **Salvar** do modal; o erro da API aparece num Alert.
 
 **Detalhe da tarefa**
 

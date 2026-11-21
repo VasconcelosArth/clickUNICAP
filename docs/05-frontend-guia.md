@@ -222,7 +222,7 @@ libera tela de rota que ainda não existe (ver [Rotas](#rotas)).
 /w/:workspaceId/p/:projectId/list       → Lista (Pessoa 2)
 /w/:workspaceId/p/:projectId/board      → Kanban (Pessoa 3)
 /w/:workspaceId/p/:projectId/calendar   → Calendário (Pessoa 6)
-/w/:workspaceId/p/:projectId/gantt      → Gantt (Pessoa 9)
+/w/:workspaceId/p/:projectId/gantt      → Gantt (Pessoa 9), com os mesmos filtros da URL
 /w/:workspaceId/t/:taskId               → Detalhe da tarefa (abre como modal sobre a view atual)
 /w/:workspaceId/settings/members        → Membros (Pessoa 1)
 ```
@@ -239,7 +239,6 @@ desativado:
 | Notificações | Módulo `notifications` | Pessoa 5 |
 | Anexos | Módulo `attachments` | Pessoa 7 |
 | Campos personalizados | Módulo `custom-fields` | Pessoa 8 |
-| Dependências e Gantt | Módulo `dependencies` | Pessoa 9 |
 | Controle de tempo | Módulo `time-tracking` | Pessoa 10 |
 
 Quando a rota ficar pronta, tire o item desta tabela no mesmo PR da tela.
