@@ -236,7 +236,6 @@ desativado:
 | Fora por enquanto | O que falta no backend | Dono |
 |---|---|---|
 | Subtarefas e comentários | Módulos `subtasks` e `comments` | Pessoa 4 |
-| Notificações | Módulo `notifications` | Pessoa 5 |
 | Anexos | Módulo `attachments` | Pessoa 7 |
 | Campos personalizados | Módulo `custom-fields` | Pessoa 8 |
 | Controle de tempo | Módulo `time-tracking` | Pessoa 10 |
