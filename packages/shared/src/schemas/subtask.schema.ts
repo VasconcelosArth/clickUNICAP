@@ -18,5 +18,5 @@ export const updateSubtaskSchema = subtaskSchema
   .refine((v) => Object.keys(v).length > 0, { message: 'Informe ao menos um campo' });
 
 export type Subtask = z.infer<typeof subtaskSchema>;
-export type createSubtaskInput = z.infer<typeof createSubtaskSchema>;
+export type CreateSubtaskInput = z.infer<typeof createSubtaskSchema>;
 export type UpdateSubtaskInput = z.infer<typeof updateSubtaskSchema>;
