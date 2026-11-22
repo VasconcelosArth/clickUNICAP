@@ -64,4 +64,21 @@ export class CommentsRepository {
   async remove(id: string): Promise<void> {
     await this.db.delete(comments).where(eq(comments.id, id));
   }
+
+  async findTaskScope(workspaceId: string, taskId: string) {
+    const [row] = await this.db
+      .select({ taskId: tasks.id, archivedAt: projects.archivedAt })
+      .from(tasks)
+      .innerJoin(projects, eq(projects.id, tasks.projectId))
+      .where(and(eq(tasks.id, taskId), eq(projects.workspaceId, workspaceId)));
+    return row ? { taskId: row.taskId, archived: row.archivedAt !== null } : null;
+  }
+
+  async listMentionedUserIds(commentId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ userId: commentMentions.userId })
+      .from(commentMentions)
+      .where(eq(commentMentions.commentId, commentId));
+    return rows.map((r) => r.userId);
+  }
 }
