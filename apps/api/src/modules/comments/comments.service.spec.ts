@@ -5,9 +5,10 @@ import { DomainEvents } from '@/core/events';
 import { WorkspacesService } from '@/modules/workspaces/workspaces.service';
 import { CommentsRepository } from './comments.repository';
 import { CommentsService } from './comments.service';
+import { randomUUID } from 'node:crypto';
 
-const U2 = '3f2a9c1e-2222-4222-8222-222222222222';
-const U3 = '3f2a9c1e-3333-4333-8333-333333333333';
+const U1 = randomUUID();
+const U2 = randomUUID();
 
 describe('CommentsService', () => {
   let service: CommentsService;
@@ -70,12 +71,12 @@ describe('CommentsService', () => {
     it('emite um evento por pessoa mencionada que é membro', async () => {
       repo.findTaskScope.mockResolvedValue({ taskId: 't1', archived: false });
       repo.createWithMentions.mockResolvedValue({ id: 'c1', taskId: 't1' });
-      await service.create(ctx, 't1', { body: `oi @[${U2}] e @[${U3}]` });
+      await service.create(ctx, 't1', { body: `oi @[${U1}] e @[${U2}]` });
       expect(events.emit).toHaveBeenCalledTimes(2);
       expect(events.emit).toHaveBeenCalledWith(DomainEvents.CommentMentioned, {
         commentId: 'c1',
         taskId: 't1',
-        mentionedUserId: U2,
+        mentionedUserId: U1,
         by: 'u1',
       });
     });
@@ -83,9 +84,9 @@ describe('CommentsService', () => {
     it('ignora menção de quem não é membro do workspace', async () => {
       repo.findTaskScope.mockResolvedValue({ taskId: 't1', archived: false });
       repo.createWithMentions.mockResolvedValue({ id: 'c1', taskId: 't1' });
-      workspaces.isMember.mockImplementation(async (_w: string, userId: string) => userId === U2);
-      await service.create(ctx, 't1', { body: `@[${U2}] @[${U3}]` });
-      expect(repo.createWithMentions).toHaveBeenCalledWith(expect.anything(), [U2]);
+      workspaces.isMember.mockImplementation(async (_w: string, userId: string) => userId === U1);
+      await service.create(ctx, 't1', { body: `@[${U1}] @[${U2}]` });
+      expect(repo.createWithMentions).toHaveBeenCalledWith(expect.anything(), [U1]);
       expect(events.emit).toHaveBeenCalledTimes(1);
     });
   });
@@ -114,13 +115,13 @@ describe('CommentsService', () => {
 
     it('emite evento só para menções novas', async () => {
       repo.findById.mockResolvedValue(existing);
-      repo.listMentionedUserIds.mockResolvedValue([U2]);
+      repo.listMentionedUserIds.mockResolvedValue([U1]);
       repo.updateWithMentions.mockResolvedValue({ id: 'c1', taskId: 't1' });
-      await service.update(ctx, 'c1', { body: `@[${U2}] @[${U3}]` });
+      await service.update(ctx, 'c1', { body: `@[${U1}] @[${U2}]` });
       expect(events.emit).toHaveBeenCalledTimes(1);
       expect(events.emit).toHaveBeenCalledWith(
         DomainEvents.CommentMentioned,
-        expect.objectContaining({ mentionedUserId: U3 }),
+        expect.objectContaining({ mentionedUserId: U2 }),
       );
     });
   });
