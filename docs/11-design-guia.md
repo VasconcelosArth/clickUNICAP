@@ -265,9 +265,9 @@ Kanban e Gantt ocupam toda a largura disponível: nessas páginas, retire o `max
 **Topo**
 
 - `sticky top-0 z-30`, altura `h-16`, com `before:backdrop-blur-md` e `lg:border-b border-gray-200 dark:border-gray-700/60`.
-- À direita, nesta ordem: tema, divisória, menu do usuário (leva a `/profile`).
-- O sino de notificações entra antes do tema quando o módulo `notifications` existir. Busca global no topo só com rota
-  nova: hoje a API busca dentro de um projeto, pelo filtro `search`.
+- À direita, nesta ordem: sino de notificações (só dentro de um workspace), tema, divisória, menu do usuário (leva a
+  `/profile`).
+- Busca global no topo só com rota nova: hoje a API busca dentro de um projeto, pelo filtro `search`.
 
 **Cabeçalho da página:** `sm:flex sm:justify-between sm:items-center mb-8`, com o título à esquerda e as ações à direita
 em `grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2`.
@@ -451,7 +451,7 @@ abaixo e estado vazio para quem ainda não tem workspace.
 - Comentário: Avatar, nome em `text-sm font-semibold text-gray-800 dark:text-gray-100`, data como informação auxiliar,
   texto em `text-sm`. Menção: `font-medium text-violet-700 dark:text-violet-400`.
 
-**Notificações** (entram no topo quando o módulo existir)
+**Notificações** (`features/notifications`, no topo)
 
 - IconButton no topo, com o ponto `absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 border-2 border-gray-100
   dark:border-gray-900 rounded-full` quando houver não lidas, e `aria-label` com a quantidade.

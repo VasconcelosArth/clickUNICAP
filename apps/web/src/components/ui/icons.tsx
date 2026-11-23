@@ -67,6 +67,14 @@ export function MoonIcon(props: IconProps) {
   );
 }
 
+export function BellIcon(props: IconProps) {
+  return (
+    <Icon16 {...props}>
+      <path d="M8 0a5 5 0 0 0-5 5v3.6l-1.7 2.7A1 1 0 0 0 2.1 13h11.8a1 1 0 0 0 .8-1.7L13 8.6V5a5 5 0 0 0-5-5ZM6 14a2 2 0 1 0 4 0H6Z" />
+    </Icon16>
+  );
+}
+
 export function ChevronsIcon(props: IconProps) {
   return (
     <Icon16 {...props}>
