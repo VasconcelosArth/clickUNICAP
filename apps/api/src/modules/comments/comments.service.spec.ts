@@ -78,6 +78,7 @@ describe('CommentsService', () => {
         taskId: 't1',
         mentionedUserId: U1,
         by: 'u1',
+        workspaceId: 'w1',
       });
     });
 
@@ -88,6 +89,18 @@ describe('CommentsService', () => {
       await service.create(ctx, 't1', { body: `@[${U1}] @[${U2}]` });
       expect(repo.createWithMentions).toHaveBeenCalledWith(expect.anything(), [U1]);
       expect(events.emit).toHaveBeenCalledTimes(1);
+    });
+
+    it('não emite evento quando o autor menciona a si mesmo', async () => {
+      repo.findTaskScope.mockResolvedValue({ taskId: 't1', archived: false });
+      repo.createWithMentions.mockResolvedValue({ id: 'c1', taskId: 't1' });
+      const selfCtx = { userId: U1, workspaceId: 'w1' };
+      await service.create(selfCtx, 't1', { body: `@[${U1}] @[${U2}]` });
+      expect(events.emit).toHaveBeenCalledTimes(1);
+      expect(events.emit).toHaveBeenCalledWith(
+        DomainEvents.CommentMentioned,
+        expect.objectContaining({ mentionedUserId: U2, workspaceId: 'w1', by: U1 }),
+      );
     });
   });
 
@@ -121,7 +134,7 @@ describe('CommentsService', () => {
       expect(events.emit).toHaveBeenCalledTimes(1);
       expect(events.emit).toHaveBeenCalledWith(
         DomainEvents.CommentMentioned,
-        expect.objectContaining({ mentionedUserId: U2 }),
+        expect.objectContaining({ mentionedUserId: U2, workspaceId: 'w1', by: 'u1' }),
       );
     });
   });

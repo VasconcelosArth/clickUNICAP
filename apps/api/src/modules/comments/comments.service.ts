@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { CreateCommentInput, UpdateCommentInput } from '@clickunicap/shared';
 import { ForbiddenError, NotFoundError } from '@/core/errors';
-import { DomainEvents } from '@/core/events';
+import { type CommentMentionedPayload, DomainEvents } from '@/core/events';
 import { WorkspacesService } from '@/modules/workspaces/workspaces.service';
 import { CommentsRepository, type CommentRow } from './comments.repository';
 import { extractMentionedUserIds } from './utils/extract-mentions';
@@ -32,7 +32,7 @@ export class CommentsService {
 
     const mentioned = await this.validMentions(ctx.workspaceId, input.body);
     const comment = await this.repo.createWithMentions({ taskId, authorId: ctx.userId, body: input.body }, mentioned);
-    this.emitMentions(comment, ctx.userId, mentioned);
+    this.emitMentions(comment, ctx, mentioned);
     return comment;
   }
 
@@ -48,10 +48,9 @@ export class CommentsService {
     const updated = await this.repo.updateWithMentions(id, input.body, mentioned);
     if (!updated) throw new NotFoundError('Comment', id);
 
-    // Só quem foi mencionado agora e ainda não tinha sido recebe evento.
     this.emitMentions(
       updated,
-      ctx.userId,
+      ctx,
       mentioned.filter((u) => !previous.includes(u)),
     );
     return updated;
@@ -66,7 +65,6 @@ export class CommentsService {
     await this.repo.remove(id);
   }
 
-  /** Só conta menção de quem é membro do workspace. */
   private async validMentions(workspaceId: string, body: string): Promise<string[]> {
     const ids = extractMentionedUserIds(body);
     const checked = await Promise.all(
@@ -75,14 +73,17 @@ export class CommentsService {
     return checked.filter((userId): userId is string => userId !== null);
   }
 
-  private emitMentions(comment: CommentRow, by: string, userIds: string[]): void {
+  private emitMentions(comment: CommentRow, ctx: Ctx, userIds: string[]): void {
     for (const mentionedUserId of userIds) {
-      this.events.emit(DomainEvents.CommentMentioned, {
+      if (mentionedUserId === ctx.userId) continue;
+      const payload: CommentMentionedPayload = {
         commentId: comment.id,
         taskId: comment.taskId,
         mentionedUserId,
-        by,
-      });
+        by: ctx.userId,
+        workspaceId: ctx.workspaceId,
+      };
+      this.events.emit(DomainEvents.CommentMentioned, payload);
     }
   }
 }
