@@ -12,6 +12,8 @@ import { ProjectsModule } from '@/modules/projects/projects.module';
 import { TasksModule } from '@/modules/tasks/tasks.module';
 import { UsersModule } from '@/modules/users/users.module';
 import { WorkspacesModule } from '@/modules/workspaces/workspaces.module';
+import { SubtasksModule } from '@/modules/subtasks/subtasks.module';
+import { CommentsModule } from '@/modules/comments/comments.module';
 
 /**
  * Módulo raiz. Cada módulo de negócio novo é registrado em `imports`.
@@ -32,6 +34,8 @@ import { WorkspacesModule } from '@/modules/workspaces/workspaces.module';
     WorkspacesModule,
     ProjectsModule,
     TasksModule,
+    SubtasksModule,
+    CommentsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })
