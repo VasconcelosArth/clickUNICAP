@@ -45,6 +45,16 @@ export type RunningTimer = z.infer<typeof runningTimerSchema>;
 export const currentTimerSchema = z.object({ timer: runningTimerSchema.nullable() });
 export type CurrentTimer = z.infer<typeof currentTimerSchema>;
 
+/**
+ * Resposta de POST /api/tasks/:taskId/time-entries/start. Iniciar com um timer ativo em outra tarefa para o anterior:
+ * `stopped` traz esse timer já parado, com os minutos, para a tela atualizar a outra tarefa.
+ */
+export const startTimerResultSchema = z.object({
+  timer: timeEntrySchema,
+  stopped: timeEntrySchema.nullable(),
+});
+export type StartTimerResult = z.infer<typeof startTimerResultSchema>;
+
 /** Body de POST /api/tasks/:taskId/time-entries (lançamento manual). Sem `startedAt`, o tempo termina agora. */
 export const createTimeEntrySchema = z.object({
   minutes: minutesSchema,

@@ -3,6 +3,7 @@ import {
   MAX_TIME_ENTRY_MINUTES,
   createTimeEntrySchema,
   currentTimerSchema,
+  startTimerResultSchema,
   taskTimeEntriesSchema,
   updateTimeEntrySchema,
 } from './time-entry.schema';
@@ -61,5 +62,12 @@ describe('respostas', () => {
     const running = { ...entry, endedAt: null, minutes: null, taskTitle: 'Montar a vitrine' };
     expect(currentTimerSchema.parse({ timer: running }).timer?.taskTitle).toBe('Montar a vitrine');
     expect(currentTimerSchema.parse({ timer: null })).toEqual({ timer: null });
+  });
+
+  it('início do timer, com ou sem o timer anterior parado', () => {
+    const timer = { ...entry, endedAt: null, minutes: null };
+    expect(startTimerResultSchema.parse({ timer, stopped: entry }).stopped?.minutes).toBe(30);
+    expect(startTimerResultSchema.parse({ timer, stopped: null }).stopped).toBeNull();
+    expect(startTimerResultSchema.safeParse({ timer }).success).toBe(false);
   });
 });

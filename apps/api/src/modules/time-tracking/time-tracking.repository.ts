@@ -5,6 +5,12 @@ import { projects, tasks, timeEntries, users } from '@/core/database/schema';
 
 export type TimeEntryInsert = typeof timeEntries.$inferInsert;
 
+/**
+ * Resultado de `startReplacing`. `elsewhere`: o timer ativo está em outro workspace.
+ * `race`: outro início gravou ao mesmo tempo (o service tenta de novo).
+ */
+export type StartResult = { startedId: string; stoppedId: string | null } | { rejected: 'elsewhere' | 'race' };
+
 /** Entrada com o nome de quem lançou e o projeto e o título da tarefa (para as regras do service). */
 export interface TimeEntryRow {
   id: string;
@@ -65,9 +71,55 @@ export class TimeTrackingRepository {
   }
 
   /**
-   * Grava a entrada. Devolve `undefined` se o usuário já tiver um timer ativo (em qualquer workspace):
-   * o índice único parcial `time_entries_one_running_per_user` barra o segundo, mesmo com dois cliques juntos.
+   * Inicia o timer de `userId` em `taskId`, parando antes o timer ativo dele (numa transação que trava esse timer).
+   * - Ativo na mesma tarefa: não muda nada e devolve o próprio timer.
+   * - Ativo em outro workspace: não mexe nele (`elsewhere`). Esta é a única leitura que olha além do workspace:
+   *   o índice de timer ativo vale para todos os workspaces do usuário. Só o id do workspace é usado, nada sai daqui.
+   * - Dois inícios ao mesmo tempo sem timer ativo: o índice único parcial barra o segundo (`race`).
+   * `minutesFor` calcula os minutos do timer parado (a regra fica no service).
    */
+  async startReplacing(
+    workspaceId: string,
+    userId: string,
+    taskId: string,
+    now: Date,
+    minutesFor: (startedAt: Date) => number,
+  ): Promise<StartResult> {
+    return this.db.transaction(async (tx) => {
+      const [running] = await tx
+        .select({
+          id: timeEntries.id,
+          taskId: timeEntries.taskId,
+          startedAt: timeEntries.startedAt,
+          workspaceId: projects.workspaceId,
+        })
+        .from(timeEntries)
+        .innerJoin(tasks, eq(tasks.id, timeEntries.taskId))
+        .innerJoin(projects, eq(projects.id, tasks.projectId))
+        .where(and(eq(timeEntries.userId, userId), isNull(timeEntries.endedAt)))
+        .limit(1)
+        .for('update', { of: timeEntries });
+
+      if (running && running.workspaceId !== workspaceId) return { rejected: 'elsewhere' as const };
+      if (running && running.taskId === taskId) return { startedId: running.id, stoppedId: null };
+      if (running) {
+        await tx
+          .update(timeEntries)
+          .set({ endedAt: now, minutes: minutesFor(running.startedAt) })
+          .where(eq(timeEntries.id, running.id));
+      }
+
+      const [created] = await tx
+        .insert(timeEntries)
+        .values({ taskId, userId, startedAt: now })
+        .onConflictDoNothing()
+        .returning({ id: timeEntries.id });
+      if (!created) return { rejected: 'race' as const };
+      return { startedId: created.id, stoppedId: running?.id ?? null };
+    });
+  }
+
+  /** Grava uma entrada já terminada (lançamento manual). */
   async insert(values: TimeEntryInsert): Promise<{ id: string } | undefined> {
     const [row] = await this.db
       .insert(timeEntries)

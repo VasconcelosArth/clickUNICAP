@@ -1,6 +1,11 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { currentTimerSchema, taskTimeEntriesSchema, timeEntrySchema } from '@clickunicap/shared';
+import {
+  currentTimerSchema,
+  startTimerResultSchema,
+  taskTimeEntriesSchema,
+  timeEntrySchema,
+} from '@clickunicap/shared';
 import { MailService } from '@/core/mail/mail.service';
 import { registerUser, registerUserWithWorkspace } from './utils/auth-helpers';
 import { createTestApp, resetDatabase } from './utils/create-test-app';
@@ -42,15 +47,18 @@ describe('Controle de tempo (e2e)', () => {
     const { ana, h, a } = await setup();
 
     const started = await ana.agent.post(`/api/tasks/${a.id}/time-entries/start`).set(h).expect(201);
-    expect(() => timeEntrySchema.parse(started.body)).not.toThrow();
-    expect(started.body).toMatchObject({ taskId: a.id, userId: ana.user.id, endedAt: null, minutes: null });
+    expect(() => startTimerResultSchema.parse(started.body)).not.toThrow();
+    expect(started.body.timer).toMatchObject({ taskId: a.id, userId: ana.user.id, endedAt: null, minutes: null });
+    expect(started.body.stopped).toBeNull();
+    const timerId = started.body.timer.id;
 
     const current = await ana.agent.get('/api/time-entries/current').set(h).expect(200);
     expect(() => currentTimerSchema.parse(current.body)).not.toThrow();
-    expect(current.body.timer).toMatchObject({ id: started.body.id, taskTitle: 'Montar a vitrine' });
+    expect(current.body.timer).toMatchObject({ id: timerId, taskTitle: 'Montar a vitrine' });
 
     const stopped = await ana.agent.post('/api/time-entries/current/stop').set(h).expect(200);
-    expect(stopped.body).toMatchObject({ id: started.body.id, minutes: 0 });
+    expect(() => timeEntrySchema.parse(stopped.body)).not.toThrow();
+    expect(stopped.body).toMatchObject({ id: timerId, minutes: 0 });
     expect(typeof stopped.body.endedAt).toBe('string');
 
     expect((await ana.agent.get('/api/time-entries/current').set(h).expect(200)).body).toEqual({ timer: null });
@@ -62,19 +70,63 @@ describe('Controle de tempo (e2e)', () => {
     expect(list.body.totalMinutes).toBe(45);
     expect(list.body.entries).toHaveLength(2);
     // Mais recentes primeiro pelo início: o manual "terminou agora", então começou 45 min antes do timer
-    expect(list.body.entries[0]).toMatchObject({ id: started.body.id, minutes: 0 });
+    expect(list.body.entries[0]).toMatchObject({ id: timerId, minutes: 0 });
     expect(list.body.entries[1]).toMatchObject({ minutes: 45, note: 'Reunião', userName: ana.user.name });
   });
 
-  it('só 1 timer ativo por usuário (409), inclusive com dois cliques ao mesmo tempo', async () => {
+  it('iniciar em outra tarefa para o timer anterior e devolve ele em `stopped`', async () => {
+    const { ana, h, a, b } = await setup();
+    const first = await ana.agent.post(`/api/tasks/${a.id}/time-entries/start`).set(h).expect(201);
+
+    const second = await ana.agent.post(`/api/tasks/${b.id}/time-entries/start`).set(h).expect(201);
+    expect(second.body.timer).toMatchObject({ taskId: b.id, endedAt: null });
+    expect(second.body.stopped).toMatchObject({ id: first.body.timer.id, taskId: a.id, minutes: 0 });
+    expect(typeof second.body.stopped.endedAt).toBe('string');
+
+    const current = await ana.agent.get('/api/time-entries/current').set(h).expect(200);
+    expect(current.body.timer).toMatchObject({ id: second.body.timer.id, taskTitle: 'Catalogar acervo' });
+    const ofA = await ana.agent.get(`/api/tasks/${a.id}/time-entries`).set(h).expect(200);
+    expect(ofA.body.entries).toEqual([expect.objectContaining({ id: first.body.timer.id, minutes: 0 })]);
+  });
+
+  it('iniciar na tarefa que já conta devolve o mesmo timer, sem criar outra entrada', async () => {
+    const { ana, h, a } = await setup();
+    const first = await ana.agent.post(`/api/tasks/${a.id}/time-entries/start`).set(h).expect(201);
+
+    const again = await ana.agent.post(`/api/tasks/${a.id}/time-entries/start`).set(h).expect(201);
+    expect(again.body).toEqual({ timer: first.body.timer, stopped: null });
+    const list = await ana.agent.get(`/api/tasks/${a.id}/time-entries`).set(h).expect(200);
+    expect(list.body.entries).toHaveLength(1);
+  });
+
+  it('dois inícios ao mesmo tempo terminam com 1 timer ativo e o outro parado', async () => {
     const { ana, h, a, b } = await setup();
 
-    const [r1, r2] = await Promise.all([
+    const responses = await Promise.all([
       ana.agent.post(`/api/tasks/${a.id}/time-entries/start`).set(h),
       ana.agent.post(`/api/tasks/${b.id}/time-entries/start`).set(h),
     ]);
-    expect([r1.status, r2.status].sort()).toEqual([201, 409]);
-    expect([r1, r2].find((r) => r.status === 409)!.body.error).toBe('TIMER_ALREADY_RUNNING');
+    expect(responses.map((r) => r.status)).toEqual([201, 201]);
+
+    const lists = await Promise.all(
+      [a, b].map((t) => ana.agent.get(`/api/tasks/${t.id}/time-entries`).set(h).expect(200)),
+    );
+    const all: { endedAt: string | null }[] = lists.flatMap((l) => l.body.entries);
+    expect(all).toHaveLength(2);
+    expect(all.filter((e) => e.endedAt === null)).toHaveLength(1);
+  });
+
+  it('clique duplo na mesma tarefa cria um timer só', async () => {
+    const { ana, h, a } = await setup();
+
+    const responses = await Promise.all([
+      ana.agent.post(`/api/tasks/${a.id}/time-entries/start`).set(h),
+      ana.agent.post(`/api/tasks/${a.id}/time-entries/start`).set(h),
+    ]);
+    expect(responses.map((r) => r.status)).toEqual([201, 201]);
+    expect(responses[0].body.timer.id).toBe(responses[1].body.timer.id);
+    const list = await ana.agent.get(`/api/tasks/${a.id}/time-entries`).set(h).expect(200);
+    expect(list.body.entries).toHaveLength(1);
   });
 
   it('cada pessoa tem o próprio timer', async () => {
@@ -120,7 +172,11 @@ describe('Controle de tempo (e2e)', () => {
     const { ana, h, a } = await setup();
     const started = await ana.agent.post(`/api/tasks/${a.id}/time-entries/start`).set(h).expect(201);
 
-    const res = await ana.agent.patch(`/api/time-entries/${started.body.id}`).set(h).send({ minutes: 5 }).expect(409);
+    const res = await ana.agent
+      .patch(`/api/time-entries/${started.body.timer.id}`)
+      .set(h)
+      .send({ minutes: 5 })
+      .expect(409);
     expect(res.body.error).toBe('TIMER_RUNNING');
   });
 
@@ -181,10 +237,14 @@ describe('Controle de tempo (e2e)', () => {
       await ana.agent.post(`/api/tasks/${ot.id}/time-entries/start`).set(oh).expect(201);
 
       const res = await ana.agent.post(`/api/tasks/${a.id}/time-entries/start`).set(h).expect(409);
-      expect(res.body.error).toBe('TIMER_ALREADY_RUNNING');
+      expect(res.body.error).toBe('TIMER_RUNNING_ELSEWHERE');
       expect(JSON.stringify(res.body)).not.toContain('Tarefa secreta');
       expect((await ana.agent.get('/api/time-entries/current').set(h).expect(200)).body).toEqual({ timer: null });
       await ana.agent.post('/api/time-entries/current/stop').set(h).expect(404);
+
+      // O timer do outro workspace não foi parado
+      const there = await ana.agent.get('/api/time-entries/current').set(oh).expect(200);
+      expect(there.body.timer).toMatchObject({ taskId: ot.id, endedAt: null });
     });
   });
 });

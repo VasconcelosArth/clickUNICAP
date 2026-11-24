@@ -4,6 +4,7 @@ import type {
   CurrentTimer,
   MemberRole,
   RunningTimer,
+  StartTimerResult,
   Task,
   TaskTimeEntries,
   TimeEntry,
@@ -14,6 +15,9 @@ import { ProjectsService } from '@/modules/projects/projects.service';
 import { TasksService } from '@/modules/tasks/tasks.service';
 import { TimeTrackingRepository, type TimeEntryRow } from './time-tracking.repository';
 import { addMinutes, minutesBetween } from './utils/duration';
+
+/** Tentativas de iniciar o timer quando outro início grava ao mesmo tempo. */
+const START_ATTEMPTS = 2;
 
 /** Quem está agindo: o usuário logado, o workspace ativo e o papel dele nesse workspace. */
 export interface TimeContext {
@@ -41,7 +45,7 @@ function toRunningTimerDto(row: TimeEntryRow): RunningTimer {
 }
 
 /**
- * Regras do controle de tempo: cada usuário tem no máximo 1 timer ativo, quem edita ou exclui uma entrada é o autor
+ * Regras do controle de tempo: cada usuário tem no máximo 1 timer ativo (iniciar outro para o anterior), quem edita ou exclui uma entrada é o autor
  * ou o admin do workspace, e projeto arquivado é somente leitura (mas um timer ativo ainda pode ser parado).
  */
 @Injectable()
@@ -66,16 +70,34 @@ export class TimeTrackingService {
     return { timer: row ? toRunningTimerDto(row) : null };
   }
 
-  async start(ctx: TimeContext, taskId: string): Promise<TimeEntry> {
+  /**
+   * Inicia o timer na tarefa. Se houver um ativo em outra tarefa deste workspace, ele é parado antes (vem em
+   * `stopped`). Na mesma tarefa, devolve o timer que já conta. Num timer de outro workspace, não mexe.
+   */
+  async start(ctx: TimeContext, taskId: string): Promise<StartTimerResult> {
     const task = await this.mustFindTask(ctx.workspaceId, taskId);
     await this.assertNotArchived(ctx.workspaceId, task.projectId);
 
-    const created = await this.repo.insert({ taskId, userId: ctx.userId, startedAt: new Date() });
-    if (!created) {
-      // Não diz onde está o outro timer: ele pode ser de outro workspace.
-      throw new ConflictError('Você já tem um timer ativo. Pare-o antes de iniciar outro.', 'TIMER_ALREADY_RUNNING');
+    // Dois inícios ao mesmo tempo: quem perde a corrida tenta de novo e para o timer de quem ganhou.
+    for (let attempt = 0; attempt < START_ATTEMPTS; attempt++) {
+      const now = new Date();
+      const result = await this.repo.startReplacing(ctx.workspaceId, ctx.userId, taskId, now, (startedAt) =>
+        minutesBetween(startedAt, now),
+      );
+      if ('rejected' in result) {
+        if (result.rejected === 'elsewhere') {
+          throw new ConflictError(
+            'Você tem um timer ativo em outro workspace. Pare-o lá antes de iniciar outro.',
+            'TIMER_RUNNING_ELSEWHERE',
+          );
+        }
+        continue;
+      }
+      const timer = toTimeEntryDto(await this.mustLoad(ctx.workspaceId, result.startedId));
+      const stopped = result.stoppedId ? toTimeEntryDto(await this.mustLoad(ctx.workspaceId, result.stoppedId)) : null;
+      return { timer, stopped };
     }
-    return toTimeEntryDto(await this.mustLoad(ctx.workspaceId, created.id));
+    throw new ConflictError('Outro timer foi iniciado ao mesmo tempo. Tente de novo.', 'TIMER_ALREADY_RUNNING');
   }
 
   /** Para o timer ativo do usuário neste workspace. Funciona mesmo com o projeto arquivado. */

@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import {
   createTimeEntrySchema,
   currentTimerSchema,
+  startTimerResultSchema,
   taskTimeEntriesSchema,
   timeEntrySchema,
   updateTimeEntrySchema,
@@ -45,9 +46,9 @@ export class TaskTimeEntriesController {
     return this.service.create(context(user, ws), taskId, body);
   }
 
-  /** Inicia o timer do usuário nesta tarefa. */
+  /** Inicia o timer do usuário nesta tarefa, parando o que estiver ativo em outra tarefa deste workspace. */
   @Post('start')
-  @ZodResponse(timeEntrySchema, 201)
+  @ZodResponse(startTimerResultSchema, 201)
   start(
     @CurrentUser() user: AuthUser,
     @CurrentMembership() ws: WorkspaceContext,

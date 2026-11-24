@@ -33,6 +33,7 @@ describe('TimeTrackingService', () => {
     findById: jest.fn(),
     findRunning: jest.fn(),
     insert: jest.fn(),
+    startReplacing: jest.fn(),
     stop: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
@@ -106,28 +107,74 @@ describe('TimeTrackingService', () => {
   });
 
   describe('start', () => {
-    it('grava o início agora, para o usuário logado', async () => {
-      repo.findById.mockResolvedValue(running());
-
-      await expect(service.start(ana, 't1')).resolves.toMatchObject({ id: 'e1', endedAt: null });
-      expect(repo.insert).toHaveBeenCalledWith({ taskId: 't1', userId: 'ana', startedAt: NOW });
+    const entries: Record<string, TimeEntryRow> = {
+      e1: running({ id: 'e1', taskId: 't1' }),
+      e0: row({ id: 'e0', taskId: 't0', minutes: 42 }),
+    };
+    beforeEach(() => {
+      repo.findById.mockImplementation(async (_w: string, id: string) => entries[id]);
     });
 
-    it('com outro timer ativo → TIMER_ALREADY_RUNNING (409)', async () => {
-      repo.insert.mockResolvedValue(undefined);
+    it('sem timer ativo: inicia agora, para o usuário logado, e nada é parado', async () => {
+      repo.startReplacing.mockResolvedValue({ startedId: 'e1', stoppedId: null });
+
+      const res = await service.start(ana, 't1');
+
+      expect(res).toEqual({ timer: expect.objectContaining({ id: 'e1', endedAt: null }), stopped: null });
+      expect(repo.startReplacing).toHaveBeenCalledWith(W, 'ana', 't1', NOW, expect.any(Function));
+    });
+
+    it('com timer ativo em outra tarefa: devolve o anterior parado em `stopped`', async () => {
+      repo.startReplacing.mockResolvedValue({ startedId: 'e1', stoppedId: 'e0' });
+
+      const res = await service.start(ana, 't1');
+
+      expect(res.timer).toMatchObject({ id: 'e1', taskId: 't1' });
+      expect(res.stopped).toMatchObject({ id: 'e0', taskId: 't0', minutes: 42 });
+    });
+
+    it('os minutos do timer parado são contados até agora, arredondados para baixo', async () => {
+      repo.startReplacing.mockResolvedValue({ startedId: 'e1', stoppedId: null });
+      await service.start(ana, 't1');
+
+      const minutesFor = repo.startReplacing.mock.calls[0][4] as (startedAt: Date) => number;
+      expect(minutesFor(new Date('2026-11-24T14:17:40.000Z'))).toBe(42);
+    });
+
+    it('timer ativo em outro workspace → TIMER_RUNNING_ELSEWHERE (409), sem nova tentativa', async () => {
+      repo.startReplacing.mockResolvedValue({ rejected: 'elsewhere' });
+      await expect(service.start(ana, 't1')).rejects.toMatchObject({
+        code: 'TIMER_RUNNING_ELSEWHERE',
+        statusCode: 409,
+      });
+      expect(repo.startReplacing).toHaveBeenCalledTimes(1);
+    });
+
+    it('perdeu a corrida para outro início: tenta de novo e para o timer de quem ganhou', async () => {
+      repo.startReplacing
+        .mockResolvedValueOnce({ rejected: 'race' })
+        .mockResolvedValueOnce({ startedId: 'e1', stoppedId: 'e0' });
+
+      await expect(service.start(ana, 't1')).resolves.toMatchObject({ stopped: { id: 'e0' } });
+      expect(repo.startReplacing).toHaveBeenCalledTimes(2);
+    });
+
+    it('perdeu a corrida duas vezes → TIMER_ALREADY_RUNNING (409)', async () => {
+      repo.startReplacing.mockResolvedValue({ rejected: 'race' });
       await expect(service.start(ana, 't1')).rejects.toMatchObject({ code: 'TIMER_ALREADY_RUNNING', statusCode: 409 });
+      expect(repo.startReplacing).toHaveBeenCalledTimes(2);
     });
 
     it('tarefa de outro workspace → NotFoundError', async () => {
       tasks.findOne.mockResolvedValue(null);
       await expect(service.start(ana, 't1')).rejects.toBeInstanceOf(NotFoundError);
-      expect(repo.insert).not.toHaveBeenCalled();
+      expect(repo.startReplacing).not.toHaveBeenCalled();
     });
 
     it('projeto arquivado → PROJECT_ARCHIVED', async () => {
       projects.get.mockResolvedValue({ id: 'p1', archivedAt: '2026-11-01T00:00:00.000Z' });
       await expect(service.start(ana, 't1')).rejects.toMatchObject({ code: 'PROJECT_ARCHIVED' });
-      expect(repo.insert).not.toHaveBeenCalled();
+      expect(repo.startReplacing).not.toHaveBeenCalled();
     });
   });
 
