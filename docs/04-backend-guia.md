@@ -409,6 +409,29 @@ mesmo, e uma falha no ouvinte vai para o log sem afetar a ação de quem emitiu 
 tarefa, o projeto e o nome de quem causou (`null` nos avisos automáticos), para a tela não precisar buscar a tarefa.
 `refId` aponta para a tarefa, ou para o comentário nas menções.
 
+### Rotas de controle de tempo (já implementadas)
+
+Módulo `time-tracking` (Pessoa 10). Todas pedem o header `X-Workspace-Id`. Tarefa ou lançamento de outro workspace
+responde 404.
+
+| Rota | O que faz |
+|---|---|
+| `GET /api/tasks/:taskId/time-entries` | `{ entries, totalMinutes }`: as entradas (mais recentes pelo início), com o nome de quem lançou. O total soma só as paradas |
+| `POST /api/tasks/:taskId/time-entries/start` | Inicia o timer do usuário na tarefa (201). Já há um ativo: `TIMER_ALREADY_RUNNING` (409) |
+| `GET /api/time-entries/current` | `{ timer }`: o timer ativo do usuário neste workspace, com `taskTitle`, ou `null` |
+| `POST /api/time-entries/current/stop` | Para o timer ativo e grava os minutos (200). Sem timer: 404 |
+| `POST /api/tasks/:taskId/time-entries` | Lançamento manual `{ minutes, startedAt?, note? }` (201). Sem `startedAt`, termina agora. Terminar no futuro: `TIME_ENTRY_IN_FUTURE` (400) |
+| `PATCH /api/time-entries/:id` | Muda `minutes` e/ou `note`. Os minutos mantêm o fim e recalculam o início. Timer ativo: `TIMER_RUNNING` (409) |
+| `DELETE /api/time-entries/:id` | Exclui (204) |
+
+Regras: cada usuário tem **1 timer ativo**, em qualquer workspace (índice único parcial em `time_entries`). Por isso um
+timer em outro workspace também bloqueia o início, com a mesma mensagem e sem mostrar onde ele está. Dois cliques
+juntos não criam dois timers. Os minutos são inteiros, arredondados para baixo (`utils/duration.ts`), e um lançamento
+manual vai de 1 min a 24 h. Editar e excluir: o autor ou um admin do workspace (senão 403). Projeto arquivado é
+somente leitura (`PROJECT_ARCHIVED`, 409), mas o timer ativo ainda pode ser parado. Excluir a tarefa apaga o tempo
+dela, inclusive o timer ativo. Iniciar com outro timer ativo ainda não para o anterior sozinho: fica para um PR
+seguinte, assim como o relatório de horas.
+
 ### Rotas de workspaces (já implementadas)
 
 | Rota | Quem pode |
