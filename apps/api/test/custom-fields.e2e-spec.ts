@@ -110,6 +110,24 @@ describe('Campos personalizados (e2e)', () => {
       .set(headers)
       .send({ values: { [created.body.id]: 'Inventário 01' } })
       .expect(200);
+
+    const checkbox = await agent
+      .post(base)
+      .set(headers)
+      .send({ name: 'Conferido', type: 'checkbox', isRequired: true })
+      .expect(201);
+
+    await agent
+      .patch(valuesUrl)
+      .set(headers)
+      .send({ values: { [checkbox.body.id]: false } })
+      .expect(400);
+
+    await agent
+      .patch(valuesUrl)
+      .set(headers)
+      .send({ values: { [checkbox.body.id]: true } })
+      .expect(200);
   });
 
   it('somente administradores gerenciam campos, mas membros podem preencher valores', async () => {

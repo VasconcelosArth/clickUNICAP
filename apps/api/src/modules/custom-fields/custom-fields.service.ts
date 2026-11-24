@@ -134,8 +134,14 @@ export class CustomFieldsService {
         }
         return;
       case 'checkbox':
-        if (typeof value !== 'boolean')
+        if (typeof value !== 'boolean') {
           throw new DomainError(`O campo "${field.name}" deve ser verdadeiro ou falso`, 'INVALID_FIELD_VALUE', 400);
+        }
+
+        if (field.isRequired && value !== true) {
+          throw new DomainError(`O campo "${field.name}" é obrigatório`, 'REQUIRED_FIELD', 400);
+        }
+        return;
     }
   }
 

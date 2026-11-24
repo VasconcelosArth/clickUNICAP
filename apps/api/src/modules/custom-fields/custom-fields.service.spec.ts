@@ -109,4 +109,15 @@ describe('CustomFieldsService', () => {
     await expect(service.updateTaskValues(W, T, { [FIELD]: 'A' })).resolves.toEqual({ [FIELD]: 'A' });
     expect(repo.upsertTaskValues).toHaveBeenCalledWith(T, [{ fieldId: FIELD, value: 'A' }]);
   });
+
+  it('rejects false for a required checkbox', async () => {
+    repo.listForProject.mockResolvedValue([field({ type: 'checkbox', options: null, isRequired: true })]);
+
+    await expect(service.updateTaskValues(W, T, { [FIELD]: false })).rejects.toMatchObject({
+      code: 'REQUIRED_FIELD',
+      statusCode: 400,
+    });
+
+    expect(repo.upsertTaskValues).not.toHaveBeenCalled();
+  });
 });
