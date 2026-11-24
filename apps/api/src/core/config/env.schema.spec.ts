@@ -45,4 +45,20 @@ describe('parseEnv', () => {
   it('rejeita segredo JWT curto', () => {
     expect(() => parseEnv({ ...valid, JWT_REFRESH_SECRET: '123' })).toThrow(/JWT_REFRESH_SECRET/);
   });
+
+  it('usa a pasta ./uploads e o limite de 10 MB para anexos por padrão', () => {
+    const env = parseEnv(valid);
+    expect(env.UPLOADS_DIR).toBe('./uploads');
+    expect(env.UPLOAD_MAX_BYTES).toBe(10 * 1024 * 1024);
+  });
+
+  it('converte UPLOAD_MAX_BYTES de string para número', () => {
+    expect(parseEnv({ ...valid, UPLOAD_MAX_BYTES: '2048' }).UPLOAD_MAX_BYTES).toBe(2048);
+  });
+
+  it('rejeita UPLOAD_MAX_BYTES inválido ou acima do teto de 50 MB', () => {
+    expect(() => parseEnv({ ...valid, UPLOAD_MAX_BYTES: '0' })).toThrow(/UPLOAD_MAX_BYTES/);
+    expect(() => parseEnv({ ...valid, UPLOAD_MAX_BYTES: 'abc' })).toThrow(/UPLOAD_MAX_BYTES/);
+    expect(() => parseEnv({ ...valid, UPLOAD_MAX_BYTES: String(51 * 1024 * 1024) })).toThrow(/UPLOAD_MAX_BYTES/);
+  });
 });
