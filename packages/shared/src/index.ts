@@ -6,3 +6,4 @@ export * from './schemas/project.schema';
 export * from './schemas/task.schema';
 export * from './schemas/dependency.schema';
 export * from './schemas/notification.schema';
+export * from './schemas/custom-field.schema';
