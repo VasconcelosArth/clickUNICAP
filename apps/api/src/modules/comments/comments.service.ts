@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { CreateCommentInput, UpdateCommentInput } from '@clickunicap/shared';
-import { ForbiddenError, NotFoundError } from '@/core/errors';
+import { ConflictError, ForbiddenError, NotFoundError } from '@/core/errors';
 import { type CommentMentionedPayload, DomainEvents } from '@/core/events';
 import { WorkspacesService } from '@/modules/workspaces/workspaces.service';
 import { CommentsRepository, type CommentRow } from './comments.repository';
@@ -29,6 +29,7 @@ export class CommentsService {
   async create(ctx: Ctx, taskId: string, input: CreateCommentInput): Promise<CommentRow> {
     const scope = await this.repo.findTaskScope(ctx.workspaceId, taskId);
     if (!scope) throw new NotFoundError('Task', taskId);
+    if (scope.archived) throw this.archivedError();
 
     const mentioned = await this.validMentions(ctx.workspaceId, input.body);
     const comment = await this.repo.createWithMentions({ taskId, authorId: ctx.userId, body: input.body }, mentioned);
@@ -42,6 +43,7 @@ export class CommentsService {
     if (found.comment.authorId !== ctx.userId) {
       throw new ForbiddenError('Só o autor pode editar o comentário');
     }
+    if (found.archived) throw this.archivedError();
 
     const previous = await this.repo.listMentionedUserIds(id);
     const mentioned = await this.validMentions(ctx.workspaceId, input.body);
@@ -59,6 +61,7 @@ export class CommentsService {
   async remove(ctx: Ctx, id: string): Promise<void> {
     const found = await this.repo.findById(ctx.workspaceId, id);
     if (!found) throw new NotFoundError('Comment', id);
+    if (found.archived) throw this.archivedError();
     if (found.comment.authorId !== ctx.userId) {
       throw new ForbiddenError('Só o autor pode apagar o comentário');
     }
@@ -85,5 +88,9 @@ export class CommentsService {
       };
       this.events.emit(DomainEvents.CommentMentioned, payload);
     }
+  }
+
+  private archivedError(): ConflictError {
+    return new ConflictError('Projeto arquivado é somente leitura', 'PROJECT_ARCHIVED');
   }
 }

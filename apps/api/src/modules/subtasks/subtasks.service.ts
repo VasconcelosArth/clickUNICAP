@@ -42,7 +42,6 @@ export class SubtasksService {
   }
 
   private archivedError(): ConflictError {
-    // Use o mesmo formato que TasksService usa para PROJECT_ARCHIVED.
     return new ConflictError('Projeto arquivado é somente leitura', 'PROJECT_ARCHIVED');
   }
 }
