@@ -265,9 +265,9 @@ Kanban e Gantt ocupam toda a largura disponível: nessas páginas, retire o `max
 **Topo**
 
 - `sticky top-0 z-30`, altura `h-16`, com `before:backdrop-blur-md` e `lg:border-b border-gray-200 dark:border-gray-700/60`.
-- À direita, nesta ordem: tema, divisória, menu do usuário (leva a `/profile`).
-- O sino de notificações entra antes do tema quando o módulo `notifications` existir. Busca global no topo só com rota
-  nova: hoje a API busca dentro de um projeto, pelo filtro `search`.
+- À direita, nesta ordem: sino de notificações (só dentro de um workspace), tema, divisória, menu do usuário (leva a
+  `/profile`).
+- Busca global no topo só com rota nova: hoje a API busca dentro de um projeto, pelo filtro `search`.
 
 **Cabeçalho da página:** `sm:flex sm:justify-between sm:items-center mb-8`, com o título à esquerda e as ações à direita
 em `grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2`.
@@ -417,6 +417,21 @@ abaixo e estado vazio para quem ainda não tem workspace.
 - Cabeçalho de datas como rótulo de seção; linhas de grade `border-gray-100 dark:border-gray-700/60`.
 - Barra: `h-6 rounded-lg`, em `bg-gray-400` (`todo`), `bg-sky-500` (`in_progress`) ou `bg-green-500` (`done`).
 - Hoje: linha vertical `w-px bg-violet-500`. Dependências em SVG com `stroke-gray-400 dark:stroke-gray-500`.
+- Coluna das tarefas: `w-40 sm:w-64`, para sobrar linha do tempo em 375px. Cada linha tem o título (link para o
+  detalhe) e, abaixo, o período como informação auxiliar, ou **Sem datas**; tarefa vencida usa a cor de prazo vencido
+  com o texto **Vencida**. Tarefas sem datas ficam no fim, sem barra.
+- Dia de 32px e linha de 48px. Fim de semana com `bg-gray-50 dark:bg-gray-700/20`; o dia de hoje no cabeçalho em
+  `text-violet-700 dark:text-violet-400`.
+- Dependência com datas em conflito (a tarefa que espera começa antes do último dia da outra): seta `stroke-red-500` e,
+  no topo do Card, a lista em texto com o título em `text-sm font-medium text-red-800 dark:text-red-400`.
+
+**Dependências (detalhe da tarefa)**
+
+- Slot `sidebar`, rótulo de seção **Dependências**. Duas listas, **Esperando por** e **Bloqueando**, com título
+  (link), selo de status e IconButton de remover; lista vazia mostra **Nenhuma**.
+- Com tarefa esperada ainda não concluída: **Bloqueada: N tarefas ainda não foram concluídas.** na cor de erro.
+- Adicionar: Select da relação, Select da tarefa (só as do mesmo projeto ainda não ligadas) e botão `secondary` de
+  largura total. Grava na hora, sem esperar o **Salvar** do modal; o erro da API aparece num Alert.
 
 **Detalhe da tarefa**
 
@@ -436,7 +451,7 @@ abaixo e estado vazio para quem ainda não tem workspace.
 - Comentário: Avatar, nome em `text-sm font-semibold text-gray-800 dark:text-gray-100`, data como informação auxiliar,
   texto em `text-sm`. Menção: `font-medium text-violet-700 dark:text-violet-400`.
 
-**Notificações** (entram no topo quando o módulo existir)
+**Notificações** (`features/notifications`, no topo)
 
 - IconButton no topo, com o ponto `absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 border-2 border-gray-100
   dark:border-gray-900 rounded-full` quando houver não lidas, e `aria-label` com a quantidade.

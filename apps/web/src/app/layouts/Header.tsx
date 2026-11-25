@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Avatar, IconButton, MenuIcon, MoonIcon, SunIcon } from '@/components/ui';
+import { NotificationsDropdown } from '@/features/notifications';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useCurrentWorkspace } from '@/hooks/useCurrentWorkspace';
 import { routes } from '@/lib/routes';
 import { useUiStore } from '@/stores/ui.store';
 
@@ -22,6 +24,8 @@ function ThemeToggle() {
 
 export function Header() {
   const { data: user } = useCurrentUser();
+  // As notificações são por workspace: fora dele (ex.: no perfil, sem workspace escolhido) o sino não aparece
+  const { workspaceId } = useCurrentWorkspace();
   const sidebarOpen = useUiStore((state) => state.sidebarOpen);
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen);
 
@@ -40,6 +44,7 @@ export function Header() {
             <MenuIcon />
           </button>
           <div className="flex items-center gap-3 ml-auto">
+            {workspaceId && <NotificationsDropdown workspaceId={workspaceId} />}
             <ThemeToggle />
             <span aria-hidden="true" className="w-px h-6 bg-gray-200 dark:bg-gray-700/60" />
             {user && (

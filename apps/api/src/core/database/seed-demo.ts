@@ -124,14 +124,31 @@ async function main() {
             .returning();
           if (!project) throw new Error('Falha ao criar projeto');
 
-          await tx.insert(schema.tasks).values(
-            buildDemoTasks(demoProject.tasks, today).map(({ assignee, ...task }) => ({
-              ...task,
-              projectId: project.id,
-              createdBy: ownerId,
-              assigneeId: assignee ? idOf(assignee) : null,
-            })),
-          );
+          const tasks = await tx
+            .insert(schema.tasks)
+            .values(
+              buildDemoTasks(demoProject.tasks, today).map(({ assignee, ...task }) => ({
+                ...task,
+                projectId: project.id,
+                createdBy: ownerId,
+                assigneeId: assignee ? idOf(assignee) : null,
+              })),
+            )
+            .returning({ id: schema.tasks.id, title: schema.tasks.title });
+
+          const taskIdOf = (title: string) => {
+            const found = tasks.find((task) => task.title === title);
+            if (!found) throw new Error(`Tarefa de demonstração não encontrada: ${title}`);
+            return found.id;
+          };
+          if (demoProject.dependencies?.length) {
+            await tx.insert(schema.taskDependencies).values(
+              demoProject.dependencies.map(([waiting, blocker]) => ({
+                taskId: taskIdOf(waiting),
+                dependsOnTaskId: taskIdOf(blocker),
+              })),
+            );
+          }
         }
       }
     });

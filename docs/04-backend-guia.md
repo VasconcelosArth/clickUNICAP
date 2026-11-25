@@ -370,7 +370,7 @@ Todas pedem o header `X-Workspace-Id`.
 
 Quem escrever em tarefas (ex.: a rota de mover da Pessoa 3) segue a mesma regra de projeto arquivado.
 Outros módulos usam `TasksService.findOne(workspaceId, taskId)`, que devolve `null` fora do workspace.
-Eventos já emitidos: `task.assigned`, `task.status_changed` e `comment.mentioned`. Ainda não há ouvinte: a Pessoa 5 assina com `@OnEvent`.
+Eventos já emitidos: `task.assigned`, `task.status_changed` e `comment.mentioned`. O módulo `notifications` ouve `task.assigned`.
 `task.due_soon` está no catálogo, mas nada o emite ainda: depende de um agendador, a combinar com a Pessoa 5.
 Para o Swagger, use `@ZodBody(schema)` no body e `@ZodResponse(schema)` na resposta (`core/swagger/zod-body.ts`).
 Em testes e2e, use `createProject` e `createTask` de `test/utils/factories.ts`.
@@ -404,6 +404,39 @@ Menção no formato `@[userId]`, gravada em `comment_mentions`. Só vale para me
 ignorado. Cada pessoa mencionada gera o evento `comment.mentioned` (com `workspaceId` no payload), exceto o próprio autor.
 Na edição, só as menções novas geram evento. Projeto arquivado é somente leitura. Tarefa ou comentário de outro
 workspace devolve `404`.
+### Rotas de dependências (já implementadas)
+
+Módulo `dependencies` (Pessoa 9). Todas pedem o header `X-Workspace-Id`. "A depende de B" = A fica esperando B terminar.
+
+| Rota | O que faz |
+|---|---|
+| `GET /api/tasks/:taskId/dependencies` | `{ blockedBy, blocking }`: as tarefas que esta espera e as que esperam por ela, com título, status e datas |
+| `POST /api/tasks/:taskId/dependencies` | Body `{ dependsOnTaskId }`. A tarefa passa a esperar a outra. Erros: `SELF_DEPENDENCY` (400), `DEPENDENCY_OTHER_PROJECT` (400, as duas precisam estar no mesmo projeto), `CIRCULAR_DEPENDENCY` (400), `DEPENDENCY_EXISTS` (409), `PROJECT_ARCHIVED` (409) |
+| `DELETE /api/tasks/:taskId/dependencies/:dependsOnTaskId` | Remove (204). Recusa projeto arquivado (409) |
+| `GET /api/projects/:projectId/dependencies` | Todas as dependências do projeto (pares `taskId` → `dependsOnTaskId`), para as setas do Gantt |
+
+A regra de ciclo é a função pura `wouldCreateCycle` (`modules/dependencies/utils/cycle.ts`). A gravação roda numa
+transação que trava o projeto, para que duas pessoas não fechem um ciclo ao mesmo tempo. Excluir uma tarefa apaga as
+dependências dela (`on delete cascade`). As dependências não impedem concluir uma tarefa: o detalhe da tarefa avisa
+quando ela está bloqueada e o Gantt avisa quando as datas entram em conflito.
+
+### Rotas de notificações (já implementadas)
+
+Módulo `notifications` (Pessoa 5). Todas pedem o header `X-Workspace-Id` e mostram só a caixa de entrada do usuário
+logado naquele workspace: a notificação de outra pessoa ou de outro workspace responde 404.
+
+| Rota | O que faz |
+|---|---|
+| `GET /api/notifications?unread=true&limit=20&cursor=<id>` | As mais novas primeiro. Resposta `{ data, nextCursor }`: para a próxima página, mande o `nextCursor` como `cursor` (`null` = acabou) |
+| `GET /api/notifications/unread-count` | `{ count }`, o número do sino |
+| `POST /api/notifications/:id/read` | Marca como lida e devolve a notificação. Marcar de novo mantém a data original |
+| `POST /api/notifications/read-all` | Marca todas como lidas (204) |
+
+As notificações nascem de eventos, no `NotificationsListener`: `task.assigned` → `task_assigned`,
+`comment.mentioned` → `comment_mentioned` e `task.due_soon` → `task_due_soon`. Ninguém é notificado pelo que fez a si
+mesmo, e uma falha no ouvinte vai para o log sem afetar a ação de quem emitiu o evento. O `payload` guarda o título da
+tarefa, o projeto e o nome de quem causou (`null` nos avisos automáticos), para a tela não precisar buscar a tarefa.
+`refId` aponta para a tarefa, ou para o comentário nas menções.
 
 ### Rotas de workspaces (já implementadas)
 

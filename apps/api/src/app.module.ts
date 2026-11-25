@@ -7,7 +7,9 @@ import { DatabaseModule } from '@/core/database/database.module';
 import { AllExceptionsFilter } from '@/core/filters/all-exceptions.filter';
 import { MailModule } from '@/core/mail/mail.module';
 import { AuthModule } from '@/modules/auth/auth.module';
+import { DependenciesModule } from '@/modules/dependencies/dependencies.module';
 import { HealthModule } from '@/modules/health/health.module';
+import { NotificationsModule } from '@/modules/notifications/notifications.module';
 import { ProjectsModule } from '@/modules/projects/projects.module';
 import { TasksModule } from '@/modules/tasks/tasks.module';
 import { UsersModule } from '@/modules/users/users.module';
@@ -36,6 +38,8 @@ import { CommentsModule } from '@/modules/comments/comments.module';
     TasksModule,
     SubtasksModule,
     CommentsModule,
+    DependenciesModule,
+    NotificationsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })
