@@ -370,10 +370,40 @@ Todas pedem o header `X-Workspace-Id`.
 
 Quem escrever em tarefas (ex.: a rota de mover da Pessoa 3) segue a mesma regra de projeto arquivado.
 Outros módulos usam `TasksService.findOne(workspaceId, taskId)`, que devolve `null` fora do workspace.
-Eventos já emitidos: `task.assigned` e `task.status_changed`. Ainda não há ouvinte: a Pessoa 5 assina com `@OnEvent`.
+Eventos já emitidos: `task.assigned`, `task.status_changed` e `comment.mentioned`. Ainda não há ouvinte: a Pessoa 5 assina com `@OnEvent`.
 `task.due_soon` está no catálogo, mas nada o emite ainda: depende de um agendador, a combinar com a Pessoa 5.
 Para o Swagger, use `@ZodBody(schema)` no body e `@ZodResponse(schema)` na resposta (`core/swagger/zod-body.ts`).
 Em testes e2e, use `createProject` e `createTask` de `test/utils/factories.ts`.
+
+### Rotas de subtarefas (já implementadas)
+
+Todas pedem o header `X-Workspace-Id`.
+
+| Rota | O que faz |
+|---|---|
+| `GET /api/tasks/:taskId/subtasks` | Lista em ordem de posição. Continua funcionando em projeto arquivado |
+| `POST /api/tasks/:taskId/subtasks` | Cria no fim da lista. Body `{ title }` |
+| `PATCH /api/subtasks/:id` | Edita `title` e/ou `isDone`. Body vazio devolve `422` |
+| `DELETE /api/subtasks/:id` | Remove (204) |
+
+Projeto arquivado é somente leitura: criar, editar e apagar devolvem `409 PROJECT_ARCHIVED`. Apagar a tarefa apaga as
+subtarefas (cascade). Tarefa ou subtarefa de outro workspace devolve `404`.
+
+### Rotas de comentários (já implementadas)
+
+Todas pedem o header `X-Workspace-Id`.
+
+| Rota | O que faz |
+|---|---|
+| `GET /api/tasks/:taskId/comments` | Lista os comentários da tarefa |
+| `POST /api/tasks/:taskId/comments` | Cria. Body `{ body }` |
+| `PATCH /api/comments/:id` | Só o autor (`403` para outros). Body `{ body }` |
+| `DELETE /api/comments/:id` | Só o autor (`403` para outros). 204 |
+
+Menção no formato `@[userId]`, gravada em `comment_mentions`. Só vale para membros do workspace; quem não é membro é
+ignorado. Cada pessoa mencionada gera o evento `comment.mentioned` (com `workspaceId` no payload), exceto o próprio autor.
+Na edição, só as menções novas geram evento. Projeto arquivado é somente leitura. Tarefa ou comentário de outro
+workspace devolve `404`.
 
 ### Rotas de workspaces (já implementadas)
 
