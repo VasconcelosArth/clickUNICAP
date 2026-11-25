@@ -238,7 +238,6 @@ desativado:
 | Subtarefas e comentários | Módulos `subtasks` e `comments` | Pessoa 4 |
 | Anexos | Módulo `attachments` | Pessoa 7 |
 | Campos personalizados | Módulo `custom-fields` | Pessoa 8 |
-| Controle de tempo | Módulo `time-tracking` | Pessoa 10 |
 
 Quando a rota ficar pronta, tire o item desta tabela no mesmo PR da tela.
 

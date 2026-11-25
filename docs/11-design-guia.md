@@ -464,8 +464,18 @@ com `border-violet-500` ao arrastar. Cada arquivo em uma linha, com ícone, nome
 
 **Campos personalizados:** usam Input, Select, Checkbox e Switch, sem estilo próprio.
 
-**Controle de tempo:** cronômetro com `text-sm font-medium tabular-nums`. Enquanto conta, mostra o selo de `in_progress`
-e o botão de pausa em `secondary`.
+**Controle de tempo (detalhe da tarefa)**
+
+- Slot `sidebar`, acima de Dependências, rótulo de seção **Controle de tempo**. Cronômetro com `text-sm font-medium
+  tabular-nums` (`00:00:00`) e, à direita, o botão `secondary` `sm` **Iniciar** ou **Pausar**. Enquanto conta, mostra o
+  selo de `in_progress` ao lado do cronômetro.
+- Timer ativo em outra tarefa: texto auxiliar **Timer ativo em [tarefa]. Iniciar aqui pausa o outro.**, com a tarefa
+  como link. Ao pausar, ou ao pausar o outro por iniciar aqui, um Alert de sucesso diz os minutos lançados.
+- **Total** como propriedade (rótulo à esquerda, valor à direita). Lista **Lançamentos** como a das dependências:
+  duração e autor, e abaixo a data e a nota como informação auxiliar; vazia mostra **Nenhum tempo lançado**. O timer
+  que conta aparece como **Contando**. Excluir pede confirmação na linha e só aparece para o autor e para o admin.
+- **Lançar tempo**: campos **Minutos** e **Nota (opcional)** e botão `secondary` de largura total. Grava na hora, sem
+  esperar o **Salvar** do modal (Enter também envia só o lançamento); o erro da API aparece num Alert.
 
 **Minhas tarefas:** tabelas padrão em Cards, agrupadas em **Vencidas**, **Nesta semana**, **Mais adiante** e **Sem
 prazo**. Colunas: tarefa, projeto, status, prazo e prioridade. Grupo sem tarefas não aparece.
