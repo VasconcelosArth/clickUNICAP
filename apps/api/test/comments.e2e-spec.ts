@@ -111,7 +111,15 @@ describe('Comentários (e2e)', () => {
     emitter.off(DomainEvents.CommentMentioned, listener);
 
     expect(await mentionsOf(c.body.id)).toEqual([membro.user.id]);
-    expect(received).toEqual([{ commentId: c.body.id, taskId: task.id, mentionedUserId: membro.user.id, by: user.id }]);
+    expect(received).toEqual([
+      {
+        commentId: c.body.id,
+        taskId: task.id,
+        mentionedUserId: membro.user.id,
+        by: user.id,
+        workspaceId: workspace.id,
+      },
+    ]);
   });
 
   it('editar troca as menções e só avisa as novas; apagar remove as menções', async () => {
@@ -145,9 +153,23 @@ describe('Comentários (e2e)', () => {
     await agent.delete(`/api/comments/${c.body.id}`).set(h).expect(204);
   });
 
-  it('projeto arquivado: comentários continuam permitidos', async () => {
-    const { agent, h, project, url } = await setup();
-    await agent.post(`/api/projects/${project.id}/archive`).set(h).expect(200);
-    await agent.post(url).set(h).send({ body: 'Ainda posso' }).expect(201);
+  it('projeto arquivado é somente leitura (409), mas a lista continua visível', async () => {
+    const { agent, workspace } = await registerUserWithWorkspace(app);
+    const h = { 'X-Workspace-Id': workspace.id };
+    const p = await createProject(agent, workspace.id);
+    const t = await createTask(agent, workspace.id, p.id);
+    const url = `/api/tasks/${t.id}/comments`;
+    const c = await agent.post(url).set(h).send({ body: 'Antes' }).expect(201);
+
+    await agent.post(`/api/projects/${p.id}/archive`).set(h).expect(200);
+
+    const refused = await agent.post(url).set(h).send({ body: 'Depois' }).expect(409);
+    expect(refused.body.error).toBe('PROJECT_ARCHIVED');
+    await agent.patch(`/api/comments/${c.body.id}`).set(h).send({ body: 'x' }).expect(409);
+    await agent.delete(`/api/comments/${c.body.id}`).set(h).expect(409);
+    await agent.get(url).set(h).expect(200);
+
+    await agent.post(`/api/projects/${p.id}/unarchive`).set(h).expect(200);
+    await agent.patch(`/api/comments/${c.body.id}`).set(h).send({ body: 'ok' }).expect(200);
   });
 });

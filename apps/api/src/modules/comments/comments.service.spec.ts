@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { ForbiddenError, NotFoundError } from '@/core/errors';
+import { ConflictError, ForbiddenError, NotFoundError } from '@/core/errors';
 import { DomainEvents } from '@/core/events';
 import { WorkspacesService } from '@/modules/workspaces/workspaces.service';
 import { CommentsRepository } from './comments.repository';
@@ -102,6 +102,11 @@ describe('CommentsService', () => {
         expect.objectContaining({ mentionedUserId: U2, workspaceId: 'w1', by: U1 }),
       );
     });
+    it('ConflictError quando o projeto está arquivado (create)', async () => {
+      repo.findTaskScope.mockResolvedValue({ taskId: 't1', archived: true });
+      await expect(service.create(ctx, 't1', { body: 'oi' })).rejects.toBeInstanceOf(ConflictError);
+      expect(repo.createWithMentions).not.toHaveBeenCalled();
+    });
   });
 
   describe('update', () => {
@@ -137,6 +142,12 @@ describe('CommentsService', () => {
         expect.objectContaining({ mentionedUserId: U2, workspaceId: 'w1', by: 'u1' }),
       );
     });
+
+    it('ConflictError quando o projeto está arquivado (update)', async () => {
+      repo.findById.mockResolvedValue({ comment: { id: 'c1', taskId: 't1', authorId: 'u1' }, archived: true });
+      await expect(service.update(ctx, 'c1', { body: 'x' })).rejects.toBeInstanceOf(ConflictError);
+      expect(repo.updateWithMentions).not.toHaveBeenCalled();
+    });
   });
 
   describe('remove', () => {
@@ -156,6 +167,12 @@ describe('CommentsService', () => {
     it('ForbiddenError quando não é o autor', async () => {
       repo.findById.mockResolvedValue({ ...existing, comment: { ...existing.comment, authorId: 'outro' } });
       await expect(service.remove(ctx, 'c1')).rejects.toBeInstanceOf(ForbiddenError);
+      expect(repo.remove).not.toHaveBeenCalled();
+    });
+
+    it('ConflictError quando o projeto está arquivado (remove)', async () => {
+      repo.findById.mockResolvedValue({ comment: { id: 'c1', taskId: 't1', authorId: 'u1' }, archived: true });
+      await expect(service.remove(ctx, 'c1')).rejects.toBeInstanceOf(ConflictError);
       expect(repo.remove).not.toHaveBeenCalled();
     });
   });
