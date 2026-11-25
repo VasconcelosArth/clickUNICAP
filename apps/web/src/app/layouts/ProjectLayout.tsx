@@ -14,6 +14,7 @@ function ProjectViewTabs({ projectId }: { projectId: string }) {
     { label: 'Kanban', pathname: routes.board(workspaceId, projectId) },
     { label: 'Lista', pathname: routes.list(workspaceId, projectId) },
     { label: 'Gantt', pathname: routes.gantt(workspaceId, projectId) },
+    { label: 'Calendário', pathname: routes.calendar(workspaceId, projectId) },
   ];
 
   return (

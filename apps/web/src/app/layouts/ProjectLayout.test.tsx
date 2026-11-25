@@ -17,7 +17,10 @@ describe('ProjectLayout', () => {
     expect(screen.getByRole('link', { name: 'Kanban' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Lista' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Gantt' })).toHaveAttribute('href', expect.stringMatching(/\/gantt$/));
-    expect(screen.queryByRole('link', { name: 'Calendário' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Calendário' })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/\/calendar$/),
+    );
   });
 
   it('abre o formulário de nova tarefa', async () => {
