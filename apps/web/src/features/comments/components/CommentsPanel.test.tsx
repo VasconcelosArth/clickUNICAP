@@ -1,5 +1,5 @@
 import type { Comment } from '@clickunicap/shared';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { ids } from '@/mocks/fixtures';
@@ -88,21 +88,67 @@ describe('CommentsPanel', () => {
     expect(screen.getAllByRole('button', { name: /^Apagar comentário de/ })).toHaveLength(1);
   });
 
-  it('comenta com menção: o texto guarda o id e o campo é limpo', async () => {
+  it('comenta com menção pelo @: o campo mostra o nome, o envio guarda o id e o campo é limpo', async () => {
     const api = serveComments([]);
     const user = userEvent.setup();
     renderPanel();
 
     const field = await screen.findByLabelText('Comentário');
     expect(screen.getByRole('button', { name: 'Comentar' })).toBeDisabled();
-    await user.type(field, 'Oi ');
-    await user.selectOptions(await screen.findByRole('combobox', { name: 'Mencionar alguém' }), ids.otherUser);
-    expect(field).toHaveValue(`Oi @[${ids.otherUser}] `);
+    await user.type(field, 'Oi @bru');
+    const list = await screen.findByRole('listbox', { name: 'Membros para mencionar' });
+    expect(within(list).getAllByRole('option')).toHaveLength(1);
+    await user.click(within(list).getByRole('option', { name: 'Bruno Lima' }));
+
+    expect(field).toHaveValue('Oi @Bruno Lima ');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    await user.type(field, 'veja');
     await user.click(screen.getByRole('button', { name: 'Comentar' }));
 
-    await waitFor(() => expect(api.posts).toEqual([{ body: `Oi @[${ids.otherUser}]` }]));
+    await waitFor(() => expect(api.posts).toEqual([{ body: `Oi @[${ids.otherUser}] veja` }]));
     expect(await screen.findByText('@Bruno Lima')).toBeInTheDocument();
     expect(field).toHaveValue('');
+  });
+
+  it('navega na lista de menções pelo teclado (setas, Enter e Esc)', async () => {
+    serveComments([]);
+    const user = userEvent.setup();
+    renderPanel();
+
+    const field = await screen.findByLabelText('Comentário');
+    expect(field).toHaveAttribute('aria-autocomplete', 'list');
+    await user.type(field, '@');
+    const list = await screen.findByRole('listbox');
+    const options = within(list).getAllByRole('option');
+    expect(options).toHaveLength(2);
+    expect(field).toHaveAttribute('aria-controls', list.id);
+    expect(field).toHaveAttribute('aria-activedescendant', options[0]!.id);
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+
+    await user.keyboard('{ArrowDown}');
+    expect(field).toHaveAttribute('aria-activedescendant', options[1]!.id);
+    await user.keyboard('{ArrowDown}');
+    expect(field).toHaveAttribute('aria-activedescendant', options[0]!.id);
+    await user.keyboard('{ArrowUp}');
+    expect(options[1]).toHaveAttribute('aria-selected', 'true');
+    await user.keyboard('{Enter}');
+    expect(field).toHaveValue('@Bruno Lima ');
+    expect(field).not.toHaveAttribute('aria-activedescendant');
+
+    await user.type(field, '@an');
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(field).toHaveValue('@Bruno Lima @an');
+  });
+
+  it('fecha a lista quando ninguém combina com o texto', async () => {
+    serveComments([]);
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.type(await screen.findByLabelText('Comentário'), '@zzz');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
   it('mostra o erro da API ao comentar e mantém o texto', async () => {
@@ -136,6 +182,22 @@ describe('CommentsPanel', () => {
     await waitFor(() => expect(api.patches).toEqual([{ body: 'Texto novo' }]));
     expect(await screen.findByText('Texto novo')).toBeInTheDocument();
     expect(screen.queryByLabelText('Editar comentário')).not.toBeInTheDocument();
+  });
+
+  it('edita mostrando o nome no lugar do id e grava de volta o id', async () => {
+    const api = serveComments([theirs, mine]);
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(await screen.findByRole('button', { name: /^Editar comentário de/ }));
+    const field = screen.getByLabelText('Editar comentário');
+    expect(field).toHaveValue('Veja com @Bruno Lima');
+    await user.type(field, ' e @an');
+    await user.keyboard('{Enter}');
+    expect(field).toHaveValue('Veja com @Bruno Lima e @Ana Souza ');
+    await user.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() => expect(api.patches).toEqual([{ body: `Veja com @[${ids.otherUser}] e @[${ids.user}]` }]));
   });
 
   it('apaga depois de confirmar', async () => {
