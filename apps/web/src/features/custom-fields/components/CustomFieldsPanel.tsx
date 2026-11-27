@@ -15,15 +15,17 @@ import {
 } from '@/components/ui';
 import type { TaskSlotProps } from '@/app/slots/task-detail-slots';
 import { useCurrentWorkspace } from '@/hooks/useCurrentWorkspace';
+import { ApiError } from '@/lib/api-client';
 import {
   useCreateCustomField,
   useDeleteCustomField,
+  useProjectArchived,
   useProjectCustomFields,
   useTaskCustomFieldValues,
   useUpdateCustomField,
   useUpdateTaskCustomFieldValues,
 } from '../api/custom-fields.queries';
-import type { CustomFieldValues } from '../api/custom-fields.api';
+import type { CustomFieldValue, CustomFieldValues } from '../api/custom-fields.api';
 
 const FIELD_TYPES: { value: CustomFieldType; label: string }[] = [
   { value: 'text', label: 'Texto' },
@@ -266,25 +268,38 @@ function FieldManager({ projectId, fields }: FieldManagerProps) {
   );
 }
 
-function valueFor(field: CustomField, values: CustomFieldValues): string | number | boolean | null {
+function valueFor(field: CustomField, values: CustomFieldValues): CustomFieldValue {
   const value = values[field.id];
   if (value !== undefined && Object.prototype.hasOwnProperty.call(values, field.id)) return value;
   return field.type === 'checkbox' ? false : null;
 }
 
+/** Mesma regra da API: obrigatório não aceita vazio, e checkbox obrigatório precisa estar marcado. */
+function missingRequired(field: CustomField, value: CustomFieldValue): string | null {
+  if (!field.isRequired) return null;
+  if (field.type === 'checkbox') return value === true ? null : 'Obrigatório: marque este campo.';
+  if (value === null || (typeof value === 'string' && !value.trim())) return 'Obrigatório: preencha este campo.';
+  return null;
+}
+
 /** Slot principal do detalhe da tarefa: edição dos valores e configuração dos campos do projeto (admin). */
 export function CustomFieldsPanel({ taskId, projectId }: TaskSlotProps) {
   const { isAdmin } = useCurrentWorkspace();
+  const archived = useProjectArchived(projectId);
   const fieldsQuery = useProjectCustomFields(projectId);
   const valuesQuery = useTaskCustomFieldValues(taskId);
-  const saveValues = useUpdateTaskCustomFieldValues(taskId);
+  const saveValues = useUpdateTaskCustomFieldValues(taskId, projectId);
   const [values, setValues] = useState<CustomFieldValues>({});
-  const [dirty, setDirty] = useState(false);
+  /** Só os campos alterados vão para a API: um obrigatório vazio que ninguém mexeu não trava os outros. */
+  const [changed, setChanged] = useState<ReadonlySet<string>>(new Set());
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [managing, setManaging] = useState(false);
+  const dirty = changed.size > 0;
 
   useEffect(() => {
     setValues(valuesQuery.data ?? {});
-    setDirty(false);
+    setChanged(new Set());
+    setFieldErrors({});
   }, [taskId, valuesQuery.data]);
 
   if (fieldsQuery.isPending || valuesQuery.isPending) {
@@ -310,15 +325,33 @@ export function CustomFieldsPanel({ taskId, projectId }: TaskSlotProps) {
   }
 
   const fields = fieldsQuery.data ?? [];
-  const changeValue = (fieldId: string, value: string | number | boolean | null) => {
+  const changeValue = (fieldId: string, value: CustomFieldValue) => {
     setValues((current) => ({ ...current, [fieldId]: value }));
-    setDirty(true);
+    setChanged((current) => new Set(current).add(fieldId));
+    setFieldErrors(({ [fieldId]: _removed, ...rest }) => rest);
     saveValues.reset();
   };
 
   const submitValues = () => {
-    const submitted = Object.fromEntries(fields.map((field) => [field.id, valueFor(field, values)]));
-    saveValues.mutate(submitted, { onSuccess: () => setDirty(false) });
+    const changedFields = fields.filter((field) => changed.has(field.id));
+    const errors: Record<string, string> = {};
+    for (const field of changedFields) {
+      const error = missingRequired(field, valueFor(field, values));
+      if (error) errors[field.id] = error;
+    }
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    const submitted = Object.fromEntries(changedFields.map((field) => [field.id, valueFor(field, values)]));
+    saveValues.mutate(submitted, {
+      onSuccess: () => setChanged(new Set()),
+      onError: (error) => {
+        // A API recusa com REQUIRED_FIELD e o nome do campo na mensagem: mostra o erro no campo também.
+        if (!(error instanceof ApiError) || error.error !== 'REQUIRED_FIELD') return;
+        const field = changedFields.find((item) => error.message.includes(`"${item.name}"`));
+        if (field) setFieldErrors({ [field.id]: error.message });
+      },
+    });
   };
 
   return (
@@ -327,14 +360,19 @@ export function CustomFieldsPanel({ taskId, projectId }: TaskSlotProps) {
         <h2 id="custom-fields-heading" className="text-sm font-semibold text-gray-800 dark:text-gray-100">
           Campos personalizados
         </h2>
-        {isAdmin && (
+        {isAdmin && !archived && (
           <Button size="sm" variant="secondary" onClick={() => setManaging((open) => !open)}>
             {managing ? 'Fechar configuração' : 'Gerenciar campos'}
           </Button>
         )}
       </div>
 
-      {managing && isAdmin && <FieldManager projectId={projectId} fields={fields} />}
+      {archived && (
+        <p className="rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600 dark:bg-gray-700/60 dark:text-gray-300">
+          Projeto arquivado: os campos personalizados ficam somente para leitura.
+        </p>
+      )}
+      {managing && isAdmin && !archived && <FieldManager projectId={projectId} fields={fields} />}
       {saveValues.error && <Alert>{saveValues.error.message}</Alert>}
       {saveValues.isSuccess && !dirty && <Alert tone="success">Valores dos campos salvos.</Alert>}
 
@@ -342,7 +380,7 @@ export function CustomFieldsPanel({ taskId, projectId }: TaskSlotProps) {
         <EmptyState
           title="Nenhum campo personalizado"
           description={
-            isAdmin
+            isAdmin && !archived
               ? 'Use “Gerenciar campos” para criar campos para este projeto.'
               : 'Este projeto ainda não possui campos personalizados.'
           }
@@ -351,12 +389,18 @@ export function CustomFieldsPanel({ taskId, projectId }: TaskSlotProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {fields.map((field) => {
             const value = valueFor(field, values);
+            const fieldProps = {
+              label: field.name,
+              hint: field.isRequired ? 'Obrigatório' : undefined,
+              error: fieldErrors[field.id],
+            };
             if (field.type === 'checkbox') {
               return (
-                <FormField key={field.id} label={field.name} hint={field.isRequired ? 'Obrigatório' : undefined}>
+                <FormField key={field.id} {...fieldProps}>
                   {(control) => (
                     <Checkbox
                       {...control}
+                      disabled={archived}
                       checked={value === true}
                       onChange={(event) => changeValue(field.id, event.target.checked)}
                     />
@@ -366,10 +410,11 @@ export function CustomFieldsPanel({ taskId, projectId }: TaskSlotProps) {
             }
             if (field.type === 'dropdown') {
               return (
-                <FormField key={field.id} label={field.name} hint={field.isRequired ? 'Obrigatório' : undefined}>
+                <FormField key={field.id} {...fieldProps}>
                   {(control) => (
                     <Select
                       {...control}
+                      disabled={archived}
                       value={typeof value === 'string' ? value : ''}
                       onChange={(event) => changeValue(field.id, event.target.value || null)}
                     >
@@ -394,11 +439,12 @@ export function CustomFieldsPanel({ taskId, projectId }: TaskSlotProps) {
                   ? value
                   : '';
             return (
-              <FormField key={field.id} label={field.name} hint={field.isRequired ? 'Obrigatório' : undefined}>
+              <FormField key={field.id} {...fieldProps}>
                 {(control) => (
                   <Input
                     {...control}
                     type={inputType}
+                    disabled={archived}
                     value={inputValue}
                     onChange={(event) => {
                       const next = event.target.value;
@@ -413,7 +459,7 @@ export function CustomFieldsPanel({ taskId, projectId }: TaskSlotProps) {
         </div>
       )}
 
-      {fields.length > 0 && (
+      {fields.length > 0 && !archived && (
         <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 dark:border-gray-700/60 pt-4">
           <Button onClick={submitValues} loading={saveValues.isPending} disabled={!dirty}>
             Salvar campos

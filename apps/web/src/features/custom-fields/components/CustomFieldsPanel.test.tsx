@@ -2,7 +2,7 @@ import type { CustomField } from '@clickunicap/shared';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { ids, task } from '@/mocks/fixtures';
+import { ids, project, task } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 import { renderWithProviders } from '@/test/render';
 import { CustomFieldsPanel } from './CustomFieldsPanel';
@@ -105,5 +105,67 @@ describe('CustomFieldsPanel', () => {
     renderPanel();
     expect(await screen.findByRole('alert')).toHaveTextContent('Falha ao carregar campos');
     expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument();
+  });
+
+  it('envia só os campos alterados: um obrigatório vazio que não foi mexido não trava os outros', async () => {
+    let submitted: unknown;
+    server.use(
+      http.get('*/projects/:projectId/custom-fields', () => HttpResponse.json(fields)),
+      http.get('*/tasks/:taskId/custom-field-values', () => HttpResponse.json({})),
+      http.patch('*/tasks/:taskId/custom-field-values', async ({ request }) => {
+        submitted = await request.json();
+        return HttpResponse.json({ [dropdownFieldId]: 'Documento' });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderPanel();
+    await user.selectOptions(await screen.findByLabelText('Categoria'), 'Documento');
+    await user.click(screen.getByRole('button', { name: 'Salvar campos' }));
+
+    await waitFor(() => expect(submitted).toEqual({ values: { [dropdownFieldId]: 'Documento' } }));
+  });
+
+  it('mostra no próprio campo o obrigatório que ficou vazio e não envia', async () => {
+    let requests = 0;
+    server.use(
+      http.get('*/projects/:projectId/custom-fields', () => HttpResponse.json(fields)),
+      http.get('*/tasks/:taskId/custom-field-values', () => HttpResponse.json({ [textFieldId]: 'INV-10' })),
+      http.patch('*/tasks/:taskId/custom-field-values', () => {
+        requests += 1;
+        return HttpResponse.json({});
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderPanel();
+    await user.clear(await screen.findByLabelText('Código do item'));
+    await user.click(screen.getByRole('button', { name: 'Salvar campos' }));
+
+    const input = screen.getByLabelText('Código do item');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input).toHaveAccessibleDescription('Obrigatório: preencha este campo.');
+    expect(requests).toBe(0);
+
+    await user.type(input, 'INV-12');
+    expect(input).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('em projeto arquivado, desabilita os campos e esconde salvar e gerenciar', async () => {
+    server.use(
+      http.get('*/projects/:projectId', () =>
+        HttpResponse.json({ ...project, archivedAt: '2026-11-09T12:00:00.000Z' }),
+      ),
+      http.get('*/projects/:projectId/custom-fields', () => HttpResponse.json(fields)),
+      http.get('*/tasks/:taskId/custom-field-values', () => HttpResponse.json({ [textFieldId]: 'INV-10' })),
+    );
+
+    renderPanel();
+
+    expect(await screen.findByText(/Projeto arquivado/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Código do item')).toBeDisabled();
+    expect(screen.getByLabelText('Categoria')).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Salvar campos' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Gerenciar campos' })).not.toBeInTheDocument();
   });
 });

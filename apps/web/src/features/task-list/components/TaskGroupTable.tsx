@@ -1,10 +1,18 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Avatar, Card, DueDate, PriorityBadge, StatusBadge } from '@/components/ui';
 import { useTaskLink } from '@/hooks/useTaskLink';
 import { useMembersById } from '@/hooks/useWorkspaceMembers';
 import type { TaskGroup } from '@/lib/tasks';
 
-export function TaskGroupTable({ group }: { group: TaskGroup }) {
+/** Coluna extra depois de prioridade (hoje, os campos personalizados), montada fora da feature pelo `app/`. */
+export interface TaskListColumn {
+  id: string;
+  header: string;
+  renderCell: (taskId: string) => ReactNode;
+}
+
+export function TaskGroupTable({ group, extraColumns = [] }: { group: TaskGroup; extraColumns?: TaskListColumn[] }) {
   const membersById = useMembersById();
   const taskLink = useTaskLink();
 
@@ -22,6 +30,11 @@ export function TaskGroupTable({ group }: { group: TaskGroup }) {
               <th className="p-2 font-semibold text-left w-44">Responsável</th>
               <th className="p-2 font-semibold text-left w-32">Prazo</th>
               <th className="p-2 font-semibold text-left w-28">Prioridade</th>
+              {extraColumns.map((column) => (
+                <th key={column.id} className="p-2 font-semibold text-left whitespace-nowrap">
+                  {column.header}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="text-sm font-medium divide-y divide-gray-100 dark:divide-gray-700/60">
@@ -49,12 +62,17 @@ export function TaskGroupTable({ group }: { group: TaskGroup }) {
                   <td className="p-2">
                     <PriorityBadge priority={task.priority} />
                   </td>
+                  {extraColumns.map((column) => (
+                    <td key={column.id} className="p-2">
+                      {column.renderCell(task.id)}
+                    </td>
+                  ))}
                 </tr>
               );
             })}
             {group.tasks.length === 0 && (
               <tr>
-                <td colSpan={4} className="p-4 font-normal">
+                <td colSpan={4 + extraColumns.length} className="p-4 font-normal">
                   Nenhuma tarefa aqui
                 </td>
               </tr>

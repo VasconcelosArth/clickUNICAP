@@ -25,4 +25,14 @@ describe('TaskListPage', () => {
     expect(await screen.findAllByText('Nenhuma tarefa aqui')).toHaveLength(3);
     expect(screen.getByText('Concluído')).toBeInTheDocument();
   });
+
+  it('mostra as colunas extras recebidas depois de prioridade', async () => {
+    const extraColumns = [{ id: 'extra', header: 'Área', renderCell: (taskId: string) => `valor de ${taskId}` }];
+
+    renderWithProviders(<TaskListPage extraColumns={extraColumns} />, options);
+
+    const row = (await screen.findByRole('link', { name: task.title })).closest('tr') as HTMLElement;
+    expect(within(row).getByText(`valor de ${task.id}`)).toBeInTheDocument();
+    expect(screen.getAllByRole('columnheader', { name: 'Área' }).length).toBeGreaterThan(0);
+  });
 });
