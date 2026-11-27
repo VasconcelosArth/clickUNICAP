@@ -15,7 +15,7 @@ a mesma API de tarefas. Referência do produto: [`docs/01-clickup-referencia.md`
 - ✅ Etapa 0 (fundação): monorepo, `packages/shared`, `apps/api` com core, as 17 tabelas e as migrations.
 - ✅ Base do backend (Pessoa 1): auth, users, workspaces, projects, tasks, eventos, Swagger, seed e CI.
 - ⏳ Etapa 1 (agora): backend das outras frentes (Pessoas 2 a 10). Pronto: filtros (2), mover (3), `notifications` (5), `dependencies` (9) e `time-tracking` (10).
-- ⏳ Etapa 2 (agora, em paralelo): frontend. O `apps/web` já tem o setup e as telas de autenticação, workspaces, membros, projetos, tarefas, Kanban (com arrastar e soltar), Lista, Gantt, dependências e controle de tempo no detalhe da tarefa, Minhas tarefas e o sino de notificações no topo. **Só entra no frontend o que já tem rota implementada no backend.**
+- ⏳ Etapa 2 (agora, em paralelo): frontend. O `apps/web` já tem o setup e as telas de autenticação, workspaces, membros, projetos, tarefas, Kanban (com arrastar e soltar), Lista, Gantt, relatório de horas, dependências e controle de tempo no detalhe da tarefa, Minhas tarefas e o sino de notificações no topo. **Só entra no frontend o que já tem rota implementada no backend.**
 
 ## Stack (não troque sem um ADR)
 

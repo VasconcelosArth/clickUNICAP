@@ -5,6 +5,7 @@ import {
   startTimerResultSchema,
   taskTimeEntriesSchema,
   timeEntrySchema,
+  timeReportSchema,
 } from '@clickunicap/shared';
 import { MailService } from '@/core/mail/mail.service';
 import { registerUser, registerUserWithWorkspace } from './utils/auth-helpers';
@@ -245,6 +246,82 @@ describe('Controle de tempo (e2e)', () => {
       // O timer do outro workspace não foi parado
       const there = await ana.agent.get('/api/time-entries/current').set(oh).expect(200);
       expect(there.body.timer).toMatchObject({ taskId: ot.id, endedAt: null });
+    });
+  });
+
+  describe('relatório de horas', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const daysAgo = (days: number) => new Date(Date.now() - days * DAY).toISOString();
+    const period = { from: daysAgo(30), to: new Date(Date.now() + DAY).toISOString() };
+
+    it('401 sem login', async () => {
+      const id = '3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90';
+      await request(app.getHttpServer()).get(`/api/projects/${id}/time-report`).query(period).expect(401);
+    });
+
+    it('soma o tempo parado do período por membro e por tarefa', async () => {
+      const { ana, bia, h, project, a, b } = await setup();
+      const lanca = (agent: typeof ana.agent, taskId: string, minutes: number, startedAt: string) =>
+        agent.post(`/api/tasks/${taskId}/time-entries`).set(h).send({ minutes, startedAt }).expect(201);
+      await lanca(ana.agent, a.id, 60, daysAgo(10));
+      await lanca(ana.agent, b.id, 30, daysAgo(9));
+      await lanca(bia.agent, a.id, 45, daysAgo(8));
+      // Fora do relatório: antes do período, timer que ainda conta e tempo de outro projeto
+      await lanca(ana.agent, a.id, 15, daysAgo(40));
+      await bia.agent.post(`/api/tasks/${b.id}/time-entries/start`).set(h).expect(201);
+      const other = await createProject(ana.agent, ana.workspace.id, 'Outro projeto');
+      const ot = await createTask(ana.agent, ana.workspace.id, other.id, { title: 'Fora' });
+      await lanca(ana.agent, ot.id, 20, daysAgo(5));
+
+      const res = await bia.agent.get(`/api/projects/${project.id}/time-report`).set(h).query(period).expect(200);
+
+      expect(() => timeReportSchema.parse(res.body)).not.toThrow();
+      expect(res.body).toEqual({
+        from: period.from,
+        to: period.to,
+        totalMinutes: 135,
+        byMember: [
+          { userId: ana.user.id, userName: ana.user.name, minutes: 90 },
+          { userId: bia.user.id, userName: 'Bia', minutes: 45 },
+        ],
+        byTask: [
+          { taskId: a.id, taskTitle: 'Montar a vitrine', minutes: 105 },
+          { taskId: b.id, taskTitle: 'Catalogar acervo', minutes: 30 },
+        ],
+      });
+    });
+
+    it('sem tempo no período, devolve zero e listas vazias', async () => {
+      const { ana, h, project } = await setup();
+
+      const res = await ana.agent.get(`/api/projects/${project.id}/time-report`).set(h).query(period).expect(200);
+      expect(res.body).toMatchObject({ totalMinutes: 0, byMember: [], byTask: [] });
+    });
+
+    it('valida o período (422)', async () => {
+      const { ana, h, project } = await setup();
+      const get = (query: object) => ana.agent.get(`/api/projects/${project.id}/time-report`).set(h).query(query);
+
+      await get({}).expect(422);
+      await get({ from: period.to, to: period.from }).expect(422);
+      await get({ from: '2026-11-01', to: '2026-11-30' }).expect(422);
+      await get({ from: daysAgo(400), to: period.to }).expect(422);
+    });
+
+    it('não mostra o relatório de outro workspace (404)', async () => {
+      const owner = await setup();
+      await owner.ana.agent
+        .post(`/api/tasks/${owner.a.id}/time-entries`)
+        .set(owner.h)
+        .send({ minutes: 15 })
+        .expect(201);
+      const intruder = await registerUserWithWorkspace(app, 'Outro');
+      const ih = { 'X-Workspace-Id': intruder.workspace.id };
+      const url = `/api/projects/${owner.project.id}/time-report`;
+
+      await intruder.agent.get(url).set(ih).query(period).expect(404);
+      // Usando o workspace do dono no header, sem ser membro dele, também é 404
+      await intruder.agent.get(url).set(owner.h).query(period).expect(404);
     });
   });
 });

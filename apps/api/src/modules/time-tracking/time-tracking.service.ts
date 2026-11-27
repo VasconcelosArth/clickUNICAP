@@ -8,6 +8,8 @@ import type {
   Task,
   TaskTimeEntries,
   TimeEntry,
+  TimeReport,
+  TimeReportQuery,
   UpdateTimeEntryInput,
 } from '@clickunicap/shared';
 import { ConflictError, DomainError, ForbiddenError, NotFoundError } from '@/core/errors';
@@ -166,6 +168,27 @@ export class TimeTrackingService {
     this.assertCanManage(ctx, entry);
     await this.assertNotArchived(ctx.workspaceId, entry.projectId);
     if (!(await this.repo.delete(ctx.workspaceId, id))) throw new NotFoundError('Lançamento', id);
+  }
+
+  /**
+   * Relatório de horas do projeto: o tempo já parado no período, por membro e por tarefa. Qualquer membro do workspace
+   * vê, como vê os lançamentos de cada tarefa. Projeto arquivado também tem relatório.
+   */
+  async report(workspaceId: string, projectId: string, query: TimeReportQuery): Promise<TimeReport> {
+    await this.projects.get(workspaceId, projectId);
+    const from = new Date(query.from);
+    const to = new Date(query.to);
+    const [byMember, byTask] = await Promise.all([
+      this.repo.minutesByMember(workspaceId, projectId, from, to),
+      this.repo.minutesByTask(workspaceId, projectId, from, to),
+    ]);
+    return {
+      from: from.toISOString(),
+      to: to.toISOString(),
+      totalMinutes: byMember.reduce((sum, m) => sum + m.minutes, 0),
+      byMember,
+      byTask,
+    };
   }
 
   private async mustFindTask(workspaceId: string, taskId: string): Promise<Task> {

@@ -69,3 +69,41 @@ export const updateTimeEntrySchema = z
   .partial()
   .refine((v) => v.minutes !== undefined || v.note !== undefined, 'Informe os minutos ou a nota');
 export type UpdateTimeEntryInput = z.infer<typeof updateTimeEntrySchema>;
+
+/** O relatório de horas cobre no máximo 1 ano por consulta. */
+export const MAX_TIME_REPORT_DAYS = 366;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Query de GET /api/projects/:projectId/time-report. Período `[from, to)` em ISO: a tela manda o início do primeiro dia
+ * e o início do dia seguinte ao último, no fuso de quem usa. Entra o tempo que começou dentro do período.
+ */
+export const timeReportQuerySchema = z
+  .object({
+    from: dateTimeSchema,
+    to: dateTimeSchema,
+  })
+  .refine((q) => Date.parse(q.to) > Date.parse(q.from), {
+    message: 'O fim do período precisa ser depois do início',
+    path: ['to'],
+  })
+  .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= MAX_TIME_REPORT_DAYS * DAY_MS, {
+    message: `O período pode ter no máximo ${MAX_TIME_REPORT_DAYS} dias`,
+    path: ['to'],
+  });
+export type TimeReportQuery = z.infer<typeof timeReportQuerySchema>;
+
+const reportMinutesSchema = z.number().int().nonnegative();
+
+/**
+ * Resposta de GET /api/projects/:projectId/time-report: o tempo já parado do projeto no período, por membro e por
+ * tarefa, cada lista do maior para o menor. Timers que ainda contam ficam de fora.
+ */
+export const timeReportSchema = z.object({
+  from: dateTimeSchema,
+  to: dateTimeSchema,
+  totalMinutes: reportMinutesSchema,
+  byMember: z.array(z.object({ userId: idSchema, userName: z.string(), minutes: reportMinutesSchema })),
+  byTask: z.array(z.object({ taskId: idSchema, taskTitle: z.string(), minutes: reportMinutesSchema })),
+});
+export type TimeReport = z.infer<typeof timeReportSchema>;

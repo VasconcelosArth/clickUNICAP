@@ -412,7 +412,7 @@ tarefa, o projeto e o nome de quem causou (`null` nos avisos automáticos), para
 ### Rotas de controle de tempo (já implementadas)
 
 Módulo `time-tracking` (Pessoa 10). Todas pedem o header `X-Workspace-Id`. Tarefa ou lançamento de outro workspace
-responde 404.
+responde 404, e projeto de outro workspace também.
 
 | Rota | O que faz |
 |---|---|
@@ -423,6 +423,7 @@ responde 404.
 | `POST /api/tasks/:taskId/time-entries` | Lançamento manual `{ minutes, startedAt?, note? }` (201). Sem `startedAt`, termina agora. Terminar no futuro: `TIME_ENTRY_IN_FUTURE` (400) |
 | `PATCH /api/time-entries/:id` | Muda `minutes` e/ou `note`. Os minutos mantêm o fim e recalculam o início. Timer ativo: `TIMER_RUNNING` (409) |
 | `DELETE /api/time-entries/:id` | Exclui (204) |
+| `GET /api/projects/:projectId/time-report?from&to` | Relatório de horas: `{ from, to, totalMinutes, byMember, byTask }`, com o tempo já parado do projeto que começou em `[from, to)`. As listas vêm do maior para o menor. `from` e `to` em ISO, com no máximo 366 dias (senão 422). Qualquer membro vê, inclusive em projeto arquivado |
 
 Regras: cada usuário tem **1 timer ativo**, em qualquer workspace (índice único parcial em `time_entries`). Iniciar
 outro para o anterior na mesma transação, que trava o timer ativo. Dois inícios ao mesmo tempo terminam com 1 timer
@@ -431,8 +432,9 @@ contando e o outro parado: quem perde a corrida tenta de novo uma vez, e se perd
 workspace. A resposta só diz que ele existe, sem mostrar a tarefa. Os minutos são inteiros, arredondados para baixo
 (`utils/duration.ts`), e um lançamento manual vai de 1 min a 24 h. Editar e excluir: o autor ou um admin do workspace
 (senão 403). Projeto arquivado é somente leitura (`PROJECT_ARCHIVED`, 409), mas o timer ativo ainda pode ser parado,
-também pela troca automática. Excluir a tarefa apaga o tempo dela, inclusive o timer ativo. O relatório de horas fica
-para um PR seguinte.
+também pela troca automática. Excluir a tarefa apaga o tempo dela, inclusive o timer ativo. No relatório, o timer que
+ainda conta fica de fora, e a tela manda o período já convertido do fuso de quem usa (início do primeiro dia e início
+do dia seguinte ao último).
 
 ### Rotas de workspaces (já implementadas)
 

@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   createTimeEntrySchema,
@@ -6,12 +6,16 @@ import {
   startTimerResultSchema,
   taskTimeEntriesSchema,
   timeEntrySchema,
+  timeReportQuerySchema,
+  timeReportSchema,
   updateTimeEntrySchema,
   type CreateTimeEntryInput,
+  type TimeReportQuery,
   type UpdateTimeEntryInput,
 } from '@clickunicap/shared';
 import { CurrentUser, type AuthUser } from '@/core/auth';
 import { CurrentMembership, WorkspaceMemberGuard, type WorkspaceContext } from '@/core/guards';
+import { ZodValidationPipe } from '@/core/pipes/zod-validation.pipe';
 import { ZodBody, ZodResponse } from '@/core/swagger/zod-body';
 import { TimeTrackingService, type TimeContext } from './time-tracking.service';
 
@@ -97,5 +101,23 @@ export class TimeEntriesController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.service.delete(context(user, ws), id);
+  }
+}
+
+/** /api/projects/:projectId/time-report — relatório de horas do projeto num período. */
+@ApiTags('time-tracking')
+@UseGuards(WorkspaceMemberGuard)
+@Controller('projects/:projectId/time-report')
+export class ProjectTimeReportController {
+  constructor(private readonly service: TimeTrackingService) {}
+
+  @Get()
+  @ZodResponse(timeReportSchema)
+  report(
+    @CurrentMembership() ws: WorkspaceContext,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Query(new ZodValidationPipe(timeReportQuerySchema)) query: TimeReportQuery,
+  ) {
+    return this.service.report(ws.id, projectId, query);
   }
 }

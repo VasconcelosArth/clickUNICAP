@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, inArray, isNull, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, sql, type SQL } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '@/core/database/database.module';
 import { projects, tasks, timeEntries, users } from '@/core/database/schema';
 
@@ -9,6 +9,20 @@ export type TimeEntryInsert = typeof timeEntries.$inferInsert;
  * Resultado de `startReplacing`. `elsewhere`: o timer ativo está em outro workspace.
  * `race`: outro início gravou ao mesmo tempo (o service tenta de novo).
  */
+/** Minutos somados de um membro no relatório de horas. */
+export interface MemberMinutesRow {
+  userId: string;
+  userName: string;
+  minutes: number;
+}
+
+/** Minutos somados de uma tarefa no relatório de horas. */
+export interface TaskMinutesRow {
+  taskId: string;
+  taskTitle: string;
+  minutes: number;
+}
+
 export type StartResult = { startedId: string; stoppedId: string | null } | { rejected: 'elsewhere' | 'race' };
 
 /** Entrada com o nome de quem lançou e o projeto e o título da tarefa (para as regras do service). */
@@ -161,6 +175,33 @@ export class TimeTrackingRepository {
     return deleted.length > 0;
   }
 
+  /** Minutos já parados do projeto no período `[from, to)`, por membro, do maior para o menor. */
+  async minutesByMember(workspaceId: string, projectId: string, from: Date, to: Date): Promise<MemberMinutesRow[]> {
+    const minutes = sql<number>`sum(${timeEntries.minutes})::int`.mapWith(Number);
+    return this.db
+      .select({ userId: users.id, userName: users.name, minutes })
+      .from(timeEntries)
+      .innerJoin(users, eq(users.id, timeEntries.userId))
+      .innerJoin(tasks, eq(tasks.id, timeEntries.taskId))
+      .innerJoin(projects, eq(projects.id, tasks.projectId))
+      .where(this.inReport(workspaceId, projectId, from, to))
+      .groupBy(users.id, users.name)
+      .orderBy(desc(minutes), asc(users.name));
+  }
+
+  /** Minutos já parados do projeto no período `[from, to)`, por tarefa, do maior para o menor. */
+  async minutesByTask(workspaceId: string, projectId: string, from: Date, to: Date): Promise<TaskMinutesRow[]> {
+    const minutes = sql<number>`sum(${timeEntries.minutes})::int`.mapWith(Number);
+    return this.db
+      .select({ taskId: tasks.id, taskTitle: tasks.title, minutes })
+      .from(timeEntries)
+      .innerJoin(tasks, eq(tasks.id, timeEntries.taskId))
+      .innerJoin(projects, eq(projects.id, tasks.projectId))
+      .where(this.inReport(workspaceId, projectId, from, to))
+      .groupBy(tasks.id, tasks.title)
+      .orderBy(desc(minutes), asc(tasks.title));
+  }
+
   private selectRows() {
     return this.db
       .select(columns)
@@ -168,6 +209,17 @@ export class TimeTrackingRepository {
       .innerJoin(users, eq(users.id, timeEntries.userId))
       .innerJoin(tasks, eq(tasks.id, timeEntries.taskId))
       .innerJoin(projects, eq(projects.id, tasks.projectId));
+  }
+
+  /** Entradas do relatório: do projeto (neste workspace), já paradas e iniciadas dentro do período. */
+  private inReport(workspaceId: string, projectId: string, from: Date, to: Date): SQL | undefined {
+    return and(
+      eq(tasks.projectId, projectId),
+      eq(projects.workspaceId, workspaceId),
+      isNotNull(timeEntries.endedAt),
+      gte(timeEntries.startedAt, from),
+      lt(timeEntries.startedAt, to),
+    );
   }
 
   /** Escopo para os comandos sem join: a tarefa da entrada precisa estar num projeto deste workspace. */

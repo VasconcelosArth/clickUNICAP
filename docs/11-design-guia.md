@@ -380,8 +380,9 @@ abaixo e estado vazio para quem ainda não tem workspace.
 - Resumo em três Cards: **Progresso**, **Vencidas** e **Vencem nesta semana**. São calculados no frontend, a partir da
   listagem sem filtros, para não mudarem quando alguém filtra.
 - Abas de visão abaixo do resumo. Kanban vem primeiro e abre por padrão.
-- Filtros abaixo das abas, valendo para Kanban e Lista: **Buscar por título** (Input), **Prioridade** e **Responsável**
-  (Select) e **Limpar filtros** quando houver filtro ativo. Usam o `taskFiltersSchema` e ficam na URL.
+- Filtros abaixo das abas, valendo para Kanban, Lista e Gantt (a aba **Horas** não os mostra): **Buscar por título**
+  (Input), **Prioridade** e **Responsável** (Select) e **Limpar filtros** quando houver filtro ativo. Usam o
+  `taskFiltersSchema` e ficam na URL.
 - **Nova tarefa** abre um Modal com os campos do `createTaskSchema`: título e descrição, status, prioridade, responsável,
   início e prazo.
 
@@ -476,6 +477,17 @@ com `border-violet-500` ao arrastar. Cada arquivo em uma linha, com ícone, nome
   que conta aparece como **Contando**. Excluir pede confirmação na linha e só aparece para o autor e para o admin.
 - **Lançar tempo**: campos **Minutos** e **Nota (opcional)** e botão `secondary` de largura total. Grava na hora, sem
   esperar o **Salvar** do modal (Enter também envia só o lançamento); o erro da API aparece num Alert.
+
+**Relatório de horas** (aba **Horas** do projeto)
+
+- Período com dois Inputs de data, **De** e **Até**, na URL; sem período, os últimos 30 dias. À direita, **Total no
+  período** como texto auxiliar com o valor em texto forte. Período inválido mostra um Alert e não busca.
+- Dois Cards em `grid grid-cols-12 gap-6`, cada um `col-span-full xl:col-span-6`: **Por membro** (gráfico de barras
+  horizontais e tabela) e **Por tarefa** (tabela, com a tarefa como link para o detalhe). Colunas **Tempo** e **Do
+  total** alinhadas à direita, com `tabular-nums`.
+- Barras na cor da linha principal dos gráficos; o resto segue a seção Gráficos. O canvas tem `role="img"` e um
+  `aria-label` com os valores, que também estão na tabela.
+- Vazio: **Nenhum tempo lançado neste período**.
 
 **Minhas tarefas:** tabelas padrão em Cards, agrupadas em **Vencidas**, **Nesta semana**, **Mais adiante** e **Sem
 prazo**. Colunas: tarefa, projeto, status, prazo e prioridade. Grupo sem tarefas não aparece.

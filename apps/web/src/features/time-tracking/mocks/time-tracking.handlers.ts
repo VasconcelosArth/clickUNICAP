@@ -1,4 +1,4 @@
-import type { CreateTimeEntryInput, CurrentTimer, TaskTimeEntries, TimeEntry } from '@clickunicap/shared';
+import type { CreateTimeEntryInput, CurrentTimer, TaskTimeEntries, TimeEntry, TimeReport } from '@clickunicap/shared';
 import { http, HttpResponse } from 'msw';
 import { ids, user } from '@/mocks/fixtures';
 
@@ -45,4 +45,15 @@ export const timeTrackingHandlers = [
     );
   }),
   http.delete('*/time-entries/:id', () => new HttpResponse(null, { status: 204 })),
+  http.get('*/projects/:projectId/time-report', ({ request }) => {
+    const url = new URL(request.url);
+    const report: TimeReport = {
+      from: url.searchParams.get('from') ?? NOW,
+      to: url.searchParams.get('to') ?? NOW,
+      totalMinutes: 0,
+      byMember: [],
+      byTask: [],
+    };
+    return HttpResponse.json(report);
+  }),
 ];

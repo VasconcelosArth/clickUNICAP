@@ -14,6 +14,7 @@ export const routes = {
   board: (workspaceId: string, projectId: string) => `/w/${workspaceId}/p/${projectId}/board`,
   list: (workspaceId: string, projectId: string) => `/w/${workspaceId}/p/${projectId}/list`,
   gantt: (workspaceId: string, projectId: string) => `/w/${workspaceId}/p/${projectId}/gantt`,
+  hours: (workspaceId: string, projectId: string) => `/w/${workspaceId}/p/${projectId}/hours`,
   task: (workspaceId: string, taskId: string) => `/w/${workspaceId}/t/${taskId}`,
   members: (workspaceId: string) => `/w/${workspaceId}/settings/members`,
 };

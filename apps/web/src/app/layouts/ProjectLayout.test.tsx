@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { project } from '@/mocks/fixtures';
+import { ids, project } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 import { renderWithProviders } from '@/test/render';
 import { ProjectLayout } from './ProjectLayout';
@@ -17,7 +17,17 @@ describe('ProjectLayout', () => {
     expect(screen.getByRole('link', { name: 'Kanban' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Lista' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Gantt' })).toHaveAttribute('href', expect.stringMatching(/\/gantt$/));
+    expect(screen.getByRole('link', { name: 'Horas' })).toHaveAttribute('href', expect.stringMatching(/\/hours$/));
     expect(screen.queryByRole('link', { name: 'Calendário' })).not.toBeInTheDocument();
+    expect(screen.getByRole('search', { name: 'Filtrar tarefas' })).toBeInTheDocument();
+  });
+
+  it('no relatório de horas, esconde os filtros de tarefa', async () => {
+    // As abas usam o workspace ativo, então a rota precisa ser dele para a aba aparecer como atual
+    renderWithProviders(<ProjectLayout />, { ...options, route: `/w/${ids.workspace}/p/2/hours` });
+
+    expect(await screen.findByRole('link', { name: 'Horas' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('search', { name: 'Filtrar tarefas' })).not.toBeInTheDocument();
   });
 
   it('abre o formulário de nova tarefa', async () => {

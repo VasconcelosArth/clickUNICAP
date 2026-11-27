@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_TIME_ENTRY_MINUTES,
+  MAX_TIME_REPORT_DAYS,
   createTimeEntrySchema,
   currentTimerSchema,
   startTimerResultSchema,
   taskTimeEntriesSchema,
+  timeReportQuerySchema,
+  timeReportSchema,
   updateTimeEntrySchema,
 } from './time-entry.schema';
 
@@ -69,5 +72,46 @@ describe('respostas', () => {
     expect(startTimerResultSchema.parse({ timer, stopped: entry }).stopped?.minutes).toBe(30);
     expect(startTimerResultSchema.parse({ timer, stopped: null }).stopped).toBeNull();
     expect(startTimerResultSchema.safeParse({ timer }).success).toBe(false);
+  });
+});
+
+describe('timeReportQuerySchema', () => {
+  const from = '2026-11-01T03:00:00.000Z';
+
+  it('aceita um período em ISO com o fim depois do início', () => {
+    expect(timeReportQuerySchema.parse({ from, to: '2026-12-01T03:00:00.000Z' })).toEqual({
+      from,
+      to: '2026-12-01T03:00:00.000Z',
+    });
+  });
+
+  it('recusa período vazio, invertido ou sem datas', () => {
+    expect(timeReportQuerySchema.safeParse({ from, to: from }).success).toBe(false);
+    expect(timeReportQuerySchema.safeParse({ from, to: '2026-10-01T03:00:00.000Z' }).success).toBe(false);
+    expect(timeReportQuerySchema.safeParse({ from: '2026-11-01', to: '2026-11-30' }).success).toBe(false);
+    expect(timeReportQuerySchema.safeParse({}).success).toBe(false);
+  });
+
+  it(`aceita até ${MAX_TIME_REPORT_DAYS} dias`, () => {
+    const day = 24 * 60 * 60 * 1000;
+    const end = (days: number) => new Date(Date.parse(from) + days * day).toISOString();
+    expect(timeReportQuerySchema.safeParse({ from, to: end(MAX_TIME_REPORT_DAYS) }).success).toBe(true);
+    const tooLong = timeReportQuerySchema.safeParse({ from, to: end(MAX_TIME_REPORT_DAYS + 1) });
+    expect(tooLong.success).toBe(false);
+    expect(tooLong.error?.issues[0]?.message).toBe('O período pode ter no máximo 366 dias');
+  });
+});
+
+describe('timeReportSchema', () => {
+  it('aceita o relatório por membro e por tarefa', () => {
+    const report = {
+      from: '2026-11-01T03:00:00.000Z',
+      to: '2026-12-01T03:00:00.000Z',
+      totalMinutes: 90,
+      byMember: [{ userId: uuid, userName: 'Ana', minutes: 90 }],
+      byTask: [{ taskId: uuid, taskTitle: 'Montar a vitrine', minutes: 90 }],
+    };
+    expect(timeReportSchema.parse(report)).toEqual(report);
+    expect(timeReportSchema.safeParse({ ...report, totalMinutes: -1 }).success).toBe(false);
   });
 });

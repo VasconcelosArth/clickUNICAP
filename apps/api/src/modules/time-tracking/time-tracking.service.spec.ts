@@ -37,6 +37,8 @@ describe('TimeTrackingService', () => {
     stop: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    minutesByMember: jest.fn(),
+    minutesByTask: jest.fn(),
   };
   const tasks = { findOne: jest.fn() };
   const projects = { get: jest.fn() };
@@ -315,6 +317,57 @@ describe('TimeTrackingService', () => {
       projects.get.mockResolvedValue({ id: 'p1', archivedAt: '2026-11-01T00:00:00.000Z' });
       await expect(service.delete(ana, 'e1')).rejects.toMatchObject({ code: 'PROJECT_ARCHIVED' });
       expect(repo.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('report', () => {
+    const query = { from: '2026-11-01T03:00:00.000Z', to: '2026-12-01T03:00:00.000Z' };
+
+    it('soma o total pelos membros e devolve as duas listas do repository', async () => {
+      repo.minutesByMember.mockResolvedValue([
+        { userId: 'ana', userName: 'Ana', minutes: 90 },
+        { userId: 'bia', userName: 'Bia', minutes: 30 },
+      ]);
+      repo.minutesByTask.mockResolvedValue([{ taskId: 't1', taskTitle: 'Montar a vitrine', minutes: 120 }]);
+
+      const report = await service.report(W, 'p1', query);
+
+      expect(report).toEqual({
+        ...query,
+        totalMinutes: 120,
+        byMember: [
+          { userId: 'ana', userName: 'Ana', minutes: 90 },
+          { userId: 'bia', userName: 'Bia', minutes: 30 },
+        ],
+        byTask: [{ taskId: 't1', taskTitle: 'Montar a vitrine', minutes: 120 }],
+      });
+      expect(projects.get).toHaveBeenCalledWith(W, 'p1');
+      const period = [W, 'p1', new Date(query.from), new Date(query.to)];
+      expect(repo.minutesByMember).toHaveBeenCalledWith(...period);
+      expect(repo.minutesByTask).toHaveBeenCalledWith(...period);
+    });
+
+    it('sem tempo no período, devolve zero e listas vazias', async () => {
+      repo.minutesByMember.mockResolvedValue([]);
+      repo.minutesByTask.mockResolvedValue([]);
+
+      expect(await service.report(W, 'p1', query)).toEqual({ ...query, totalMinutes: 0, byMember: [], byTask: [] });
+    });
+
+    it('projeto arquivado também tem relatório', async () => {
+      projects.get.mockResolvedValue({ id: 'p1', archivedAt: '2026-11-20T12:00:00.000Z' });
+      repo.minutesByMember.mockResolvedValue([]);
+      repo.minutesByTask.mockResolvedValue([]);
+
+      await expect(service.report(W, 'p1', query)).resolves.toMatchObject({ totalMinutes: 0 });
+    });
+
+    it('projeto de outro workspace é 404 e não consulta o tempo', async () => {
+      projects.get.mockRejectedValue(new NotFoundError('Projeto', 'p1'));
+
+      await expect(service.report(W, 'p1', query)).rejects.toBeInstanceOf(NotFoundError);
+      expect(repo.minutesByMember).not.toHaveBeenCalled();
+      expect(repo.minutesByTask).not.toHaveBeenCalled();
     });
   });
 });
