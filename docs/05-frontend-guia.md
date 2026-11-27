@@ -158,7 +158,9 @@ As mensagens de erro de validação vêm do schema. Para traduzir, use o `errorM
 - `credentials: 'include'` (os cookies de auth vão sozinhos);
 - envia `X-Workspace-Id` com o workspace ativo do store;
 - em **401**, tenta `POST /auth/refresh` uma vez e repete a requisição; se falhar de novo, manda para o `/login`;
-- converte o erro padrão da API numa classe `ApiError { statusCode, error, message, details }`.
+- converte o erro padrão da API numa classe `ApiError { statusCode, error, message, details }`;
+- `api.upload(path, formData, { onProgress })` envia `multipart/form-data` com progresso (XMLHttpRequest, mesmas regras)
+  e `api.getBlob(path)` baixa um arquivo como `Blob`.
 
 ## Slots da tela de tarefa
 
@@ -178,7 +180,7 @@ export interface TaskSlot { id: string; region: TaskSlotRegion; order: number; C
 // app/slots/registry.ts  ← cada dono de feature adiciona UMA linha aqui
 import { subtasksSlot } from '@/features/subtasks';
 import { commentsSlot } from '@/features/comments';
-export const taskSlots: TaskSlot[] = [subtasksSlot, commentsSlot /*, attachmentsSlot, timeTrackingSlot ... */];
+export const taskSlots: TaskSlot[] = [subtasksSlot, commentsSlot, attachmentsSlot /*, timeTrackingSlot ... */];
 ```
 
 ```ts
@@ -241,9 +243,11 @@ desativado:
 
 Quando a rota ficar pronta, tire o item desta tabela no mesmo PR da tela.
 
-O backend de anexos já existe ([04 — Rotas de anexos](04-backend-guia.md#rotas-de-anexos-já-implementadas)): a tela
-(`features/attachments`, no slot `task-detail.attachments`) pode ser feita. O download sempre vem como
-`attachment`; para o preview de imagem e PDF, busque o arquivo pelo `api-client` e mostre um `blob:` URL.
+**Anexos** (`features/attachments`, no slot `task-detail.attachments`): o envio usa `api.upload` (com progresso) e
+valida tipo e tamanho antes com `ATTACHMENT_EXTENSIONS` e `ATTACHMENT_MAX_BYTES` do shared. O download sempre vem como
+`attachment`, então o download e o preview de imagem e PDF usam `api.getBlob` e um `blob:` URL, revogado ao fechar.
+Projeto arquivado é somente leitura: a feature lê o projeto pela mesma chave de `projectKeys.detail`, sem importar
+`features/projects`.
 
 ## Checklist do PR de frontend
 

@@ -370,7 +370,9 @@ Todas pedem o header `X-Workspace-Id`.
 
 Quem escrever em tarefas (ex.: a rota de mover da Pessoa 3) segue a mesma regra de projeto arquivado.
 Outros módulos usam `TasksService.findOne(workspaceId, taskId)`, que devolve `null` fora do workspace.
-Eventos já emitidos: `task.assigned` e `task.status_changed`. O módulo `notifications` ouve `task.assigned`.
+Eventos já emitidos: `task.assigned`, `task.status_changed` e, ao excluir, `task.deleting`/`task.deleted` (e
+`workspace.deleting`/`workspace.deleted` no módulo `workspaces`; ver [Exclusões em duas fases](#exclusões-em-duas-fases)).
+O módulo `notifications` ouve `task.assigned`; o `attachments` ouve as exclusões.
 `task.due_soon` está no catálogo, mas nada o emite ainda: depende de um agendador, a combinar com a Pessoa 5.
 Para o Swagger, use `@ZodBody(schema)` no body e `@ZodResponse(schema)` na resposta (`core/swagger/zod-body.ts`).
 Em testes e2e, use `createProject` e `createTask` de `test/utils/factories.ts`.
@@ -438,11 +440,15 @@ Os bytes ficam atrás da interface `AttachmentStorage` (`ATTACHMENT_STORAGE`). H
 `MemoryAttachmentStorage`. Se a gravação do arquivo falhar, nada vai para o banco; se o banco falhar, o arquivo é
 apagado. Ao remover, o registro sai primeiro e o arquivo depois (uma falha no disco só vai para o log).
 
-**Pendência:** excluir uma tarefa (ou o workspace inteiro) apaga os registros dos anexos (`on delete cascade`), mas
-os arquivos continuam na pasta, sem nenhum registro apontando para eles (ninguém consegue baixá-los). Ainda não há
-evento de exclusão no catálogo de `core/events`. Quando houver (`task.deleted`/`workspace.deleted`, combinar com a
-Pessoa 1), o módulo `attachments` deve ouvi-lo e apagar os arquivos; como o cascade apaga os registros junto, o evento
-precisa levar as `storage_key` (ou ser emitido antes do delete).
+**Exclusão de tarefa ou workspace:** o banco apaga os registros dos anexos em cascata, e o `AttachmentsListener`
+apaga os arquivos: lê as `storage_key` no `task.deleting`/`workspace.deleting` (antes do delete) e remove os arquivos
+no `task.deleted`/`workspace.deleted` (depois do commit). Se a exclusão falhar, nada é apagado; uma falha no disco só
+vai para o log, sem afetar a exclusão. Projetos não são apagados (só arquivados), então não há evento de projeto.
+
+**Limpeza de órfãos:** `pnpm --filter api attachments:orphans [--older-than=60]` compila a API e apaga os arquivos da
+pasta que não têm registro e são mais antigos que o limite em minutos (padrão 60, para nunca tocar num envio em
+andamento). Serve para o que sobrou de antes desta regra, de uma queda da API no meio de uma operação ou de um envio
+que chegou entre a leitura das chaves e o delete. Roda contra o banco do `.env`.
 
 ### Rotas de workspaces (já implementadas)
 
@@ -496,10 +502,16 @@ export const DomainEvents = {
   TaskStatusChanged: 'task.status_changed',
   TaskDueSoon: 'task.due_soon',
   CommentMentioned: 'comment.mentioned',
+  TaskDeleting: 'task.deleting', // antes do delete (aguardado)
+  TaskDeleted: 'task.deleted', // depois do commit
+  WorkspaceDeleting: 'workspace.deleting',
+  WorkspaceDeleted: 'workspace.deleted',
 } as const;
 
 export interface TaskAssignedPayload { taskId: string; assigneeId: string; by: string; workspaceId: string }
 export interface CommentMentionedPayload { commentId: string; taskId: string; mentionedUserId: string; by: string }
+export interface TaskDeletedPayload { taskId: string; projectId: string; workspaceId: string }
+export interface WorkspaceDeletedPayload { workspaceId: string; by: string }
 ```
 
 ```ts
@@ -515,6 +527,21 @@ export class NotificationsListener {
   }
 }
 ```
+
+### Exclusões em duas fases
+
+O `on delete cascade` apaga os filhos junto, então quem guarda algo **fora do banco** (os arquivos dos anexos) precisa
+ler o que vai sumir antes e agir só depois do commit. Quem exclui emite dois eventos com o **mesmo objeto** de payload:
+
+```ts
+const payload: TaskDeletedPayload = { taskId, projectId: task.projectId, workspaceId };
+await this.events.emitAsync(DomainEvents.TaskDeleting, payload); // ouvintes só leem e se preparam
+await this.repo.delete(workspaceId, taskId);
+this.events.emit(DomainEvents.TaskDeleted, payload); // depois do commit
+```
+
+O ouvinte do `*.deleting` não usa `{ async: true }` (o `emitAsync` precisa esperá-lo) e nunca lança erro para quem
+emitiu. Se o delete falhar, o `*.deleted` não sai e nada é apagado. Exemplo: `modules/attachments/attachments.listener.ts`.
 
 **Quando usar evento e quando chamar o service exportado:**
 - Precisa da resposta ou de garantia de que deu certo antes de continuar? **Chame o service** (ex.: comentários precisam saber se a tarefa existe).
