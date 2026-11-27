@@ -3,10 +3,29 @@ import * as argon2 from 'argon2';
 import { config } from 'dotenv';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { randomUUID } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Pool } from 'pg';
 import * as schema from './schema';
 import { buildSeedTasks, SEED_PASSWORD, SEED_USERS } from './seed-data';
+
+/** Anexos de exemplo (Pessoa 7): os bytes vão para a pasta do storage local, com chave gerada aqui. */
+const SEED_ATTACHMENTS = [
+  {
+    fileName: 'briefing.txt',
+    mimeType: 'text/plain',
+    content: Buffer.from('Briefing do app: telas de login, lista de tarefas e notificações.\n', 'utf8'),
+  },
+  {
+    fileName: 'wireframe.png',
+    mimeType: 'image/png',
+    content: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+      'base64',
+    ),
+  },
+];
 
 /** Dados de exemplo: pnpm --filter api db:seed. Pode rodar de novo: se já existirem, não faz nada. */
 async function main() {
@@ -36,15 +55,13 @@ async function main() {
 
       const [ws] = await tx.insert(schema.workspaces).values({ name: 'UNICAP Demo', ownerId: owner.id }).returning();
       if (!ws) throw new Error('Falha ao criar workspace');
-      await tx
-        .insert(schema.workspaceMembers)
-        .values(
-          users.map((u, i) => ({
-            workspaceId: ws.id,
-            userId: u.id,
-            role: i === 0 ? ('admin' as const) : ('member' as const),
-          })),
-        );
+      await tx.insert(schema.workspaceMembers).values(
+        users.map((u, i) => ({
+          workspaceId: ws.id,
+          userId: u.id,
+          role: i === 0 ? ('admin' as const) : ('member' as const),
+        })),
+      );
 
       for (const name of ['App Mobile', 'Site institucional']) {
         const [project] = await tx
@@ -52,15 +69,37 @@ async function main() {
           .values({ workspaceId: ws.id, name, createdBy: owner.id })
           .returning();
         if (!project) throw new Error('Falha ao criar projeto');
-        await tx.insert(schema.tasks).values(
-          buildSeedTasks(name, 15).map(({ assigneeIndex, ...t }) => ({
-            ...t,
-            projectId: project.id,
-            createdBy: owner.id,
-            assigneeId: assigneeIndex === null ? null : (users[assigneeIndex]?.id ?? null),
-            completedAt: t.status === 'done' ? new Date() : null,
-          })),
-        );
+        const tasks = await tx
+          .insert(schema.tasks)
+          .values(
+            buildSeedTasks(name, 15).map(({ assigneeIndex, ...t }) => ({
+              ...t,
+              projectId: project.id,
+              createdBy: owner.id,
+              assigneeId: assigneeIndex === null ? null : (users[assigneeIndex]?.id ?? null),
+              completedAt: t.status === 'done' ? new Date() : null,
+            })),
+          )
+          .returning();
+
+        const firstTask = tasks[0];
+        if (name === 'App Mobile' && firstTask) {
+          // Primeiro o arquivo, depois o registro: nunca fica registro apontando para arquivo que não existe
+          const storageDir = resolve(__dirname, '../../..', process.env.STORAGE_LOCAL_PATH ?? './uploads');
+          await mkdir(storageDir, { recursive: true });
+          for (const attachment of SEED_ATTACHMENTS) {
+            const storageKey = randomUUID();
+            await writeFile(resolve(storageDir, storageKey), attachment.content, { flag: 'wx' });
+            await tx.insert(schema.attachments).values({
+              taskId: firstTask.id,
+              uploadedBy: owner.id,
+              fileName: attachment.fileName,
+              mimeType: attachment.mimeType,
+              sizeBytes: attachment.content.length,
+              storageKey,
+            });
+          }
+        }
       }
     });
     console.log(`Seed aplicado. Entre com ${first} e a senha ${SEED_PASSWORD}`);
