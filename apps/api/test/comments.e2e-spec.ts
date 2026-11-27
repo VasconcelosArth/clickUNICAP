@@ -29,6 +29,22 @@ describe('Comentários (e2e)', () => {
       .where(eq(commentMentions.commentId, commentId))
       .then((rows) => rows.map((r) => r.userId).sort());
 
+  /** Os ouvintes rodam depois da resposta HTTP: consulta a caixa de entrada até ter `count` itens. */
+  async function waitForNotifications(
+    agent: ReturnType<typeof request.agent>,
+    h: Record<string, string>,
+    count: number,
+  ): Promise<{ type: string; refId: string }[]> {
+    const deadline = Date.now() + 2000;
+    for (;;) {
+      const res = await agent.get('/api/notifications').set(h).expect(200);
+      const items = res.body.data as { type: string; refId: string }[];
+      if (items.length >= count) return items;
+      if (Date.now() > deadline) throw new Error(`A caixa de entrada não chegou a ${count} notificação(ões)`);
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  }
+
   async function setup() {
     const owner = await registerUserWithWorkspace(app);
     const h = { 'X-Workspace-Id': owner.workspace.id };
@@ -122,6 +138,36 @@ describe('Comentários (e2e)', () => {
     ]);
   });
 
+  it('FLUXO: comentar com menção faz a notificação comment_mentioned chegar ao mencionado', async () => {
+    const { agent, user, workspace, h, url, task, project } = await setup();
+    const membro = await addMember(app, agent, workspace.id);
+
+    const c = await agent
+      .post(url)
+      .set(h)
+      .send({ body: `@[${membro.user.id}] pode revisar?` })
+      .expect(201);
+
+    // O ouvinte de notificações roda depois da resposta HTTP: consulta a caixa do membro até chegar (ou estourar o prazo).
+    const notifications = await waitForNotifications(membro.agent, h, 1);
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]).toMatchObject({
+      type: 'comment_mentioned',
+      refId: c.body.id,
+      readAt: null,
+      payload: {
+        taskId: task.id,
+        projectId: project.id,
+        actorId: user.id,
+        commentId: c.body.id,
+      },
+    });
+
+    // O autor não é notificado pelo próprio comentário.
+    const autor = await agent.get('/api/notifications').set(h).expect(200);
+    expect(autor.body.data).toEqual([]);
+  });
+
   it('editar troca as menções e só avisa as novas; apagar remove as menções', async () => {
     const { agent, workspace, h, url } = await setup();
     const m1 = await addMember(app, agent, workspace.id);
@@ -161,7 +207,12 @@ describe('Comentários (e2e)', () => {
     const url = `/api/tasks/${t.id}/comments`;
     const c = await agent.post(url).set(h).send({ body: 'Antes' }).expect(201);
 
+    const membro = await addMember(app, agent, workspace.id);
     await agent.post(`/api/projects/${p.id}/archive`).set(h).expect(200);
+
+    // Arquivado é checado antes da autoria: quem não é autor também recebe 409.
+    await membro.agent.patch(`/api/comments/${c.body.id}`).set(h).send({ body: 'x' }).expect(409);
+    await membro.agent.delete(`/api/comments/${c.body.id}`).set(h).expect(409);
 
     const refused = await agent.post(url).set(h).send({ body: 'Depois' }).expect(409);
     expect(refused.body.error).toBe('PROJECT_ARCHIVED');
