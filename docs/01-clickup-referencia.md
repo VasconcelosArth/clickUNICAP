@@ -94,7 +94,7 @@ tarefas de um jeito. Por isso, no nosso código, toda view consome a **mesma API
 
 | Recurso | O que é | Fase |
 |---|---|---|
-| Campos personalizados | O admin cria campos (texto, número, data, dropdown) por projeto | 2 |
+| Campos personalizados | O admin cria campos (texto, número, data, dropdown, checkbox) por projeto | 2 |
 | Dependências | "Bloqueia / bloqueada por" | 2 |
 | Controle de tempo | Timer na tarefa e relatório de horas | 2 |
 | Automações | "Quando X acontecer, faça Y" (ex.: status = concluído → notificar dono) | 2 (backlog) |

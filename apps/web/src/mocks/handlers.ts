@@ -1,4 +1,5 @@
 import { authHandlers } from '@/features/auth/mocks/auth.handlers';
+import { customFieldsHandlers } from '@/features/custom-fields/mocks/custom-fields.handlers';
 import { dependenciesHandlers } from '@/features/dependencies/mocks/dependencies.handlers';
 import { ganttHandlers } from '@/features/gantt/mocks/gantt.handlers';
 import { kanbanHandlers } from '@/features/kanban/mocks/kanban.handlers';
@@ -14,6 +15,7 @@ export const handlers = [
   ...projectsHandlers,
   ...tasksHandlers,
   ...kanbanHandlers,
+  ...customFieldsHandlers,
   ...dependenciesHandlers,
   ...ganttHandlers,
   ...notificationsHandlers,

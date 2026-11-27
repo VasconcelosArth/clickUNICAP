@@ -6,7 +6,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { resolve } from 'node:path';
 import { Pool } from 'pg';
 import * as schema from './schema';
-import { buildSeedTasks, SEED_PASSWORD, SEED_USERS } from './seed-data';
+import { buildSeedCustomFieldValues, buildSeedTasks, SEED_CUSTOM_FIELDS, SEED_PASSWORD, SEED_USERS } from './seed-data';
 
 /** Dados de exemplo: pnpm --filter api db:seed. Pode rodar de novo: se já existirem, não faz nada. */
 async function main() {
@@ -36,15 +36,13 @@ async function main() {
 
       const [ws] = await tx.insert(schema.workspaces).values({ name: 'UNICAP Demo', ownerId: owner.id }).returning();
       if (!ws) throw new Error('Falha ao criar workspace');
-      await tx
-        .insert(schema.workspaceMembers)
-        .values(
-          users.map((u, i) => ({
-            workspaceId: ws.id,
-            userId: u.id,
-            role: i === 0 ? ('admin' as const) : ('member' as const),
-          })),
-        );
+      await tx.insert(schema.workspaceMembers).values(
+        users.map((u, i) => ({
+          workspaceId: ws.id,
+          userId: u.id,
+          role: i === 0 ? ('admin' as const) : ('member' as const),
+        })),
+      );
 
       for (const name of ['App Mobile', 'Site institucional']) {
         const [project] = await tx
@@ -52,15 +50,42 @@ async function main() {
           .values({ workspaceId: ws.id, name, createdBy: owner.id })
           .returning();
         if (!project) throw new Error('Falha ao criar projeto');
-        await tx.insert(schema.tasks).values(
-          buildSeedTasks(name, 15).map(({ assigneeIndex, ...t }) => ({
-            ...t,
-            projectId: project.id,
-            createdBy: owner.id,
-            assigneeId: assigneeIndex === null ? null : (users[assigneeIndex]?.id ?? null),
-            completedAt: t.status === 'done' ? new Date() : null,
-          })),
+        const tasks = await tx
+          .insert(schema.tasks)
+          .values(
+            buildSeedTasks(name, 15).map(({ assigneeIndex, ...t }) => ({
+              ...t,
+              projectId: project.id,
+              createdBy: owner.id,
+              assigneeId: assigneeIndex === null ? null : (users[assigneeIndex]?.id ?? null),
+              completedAt: t.status === 'done' ? new Date() : null,
+            })),
+          )
+          .returning({ id: schema.tasks.id });
+
+        // Campos personalizados (Pessoa 8): um de cada tipo, com valores nas tarefas para as colunas da Lista.
+        const fields = await tx
+          .insert(schema.customFields)
+          .values(
+            SEED_CUSTOM_FIELDS.map(({ name: fieldName, type, options, isRequired }, position) => ({
+              projectId: project.id,
+              name: fieldName,
+              type,
+              options,
+              isRequired,
+              position,
+            })),
+          )
+          .returning({ id: schema.customFields.id, name: schema.customFields.name });
+        const seedFields = fields.flatMap((field) => {
+          const seed = SEED_CUSTOM_FIELDS.find((item) => item.name === field.name);
+          return seed ? [{ id: field.id, seed }] : [];
+        });
+        const values = buildSeedCustomFieldValues(
+          tasks.map((task) => task.id),
+          seedFields,
         );
+        if (values.length) await tx.insert(schema.taskCustomFieldValues).values(values);
       }
     });
     console.log(`Seed aplicado. Entre com ${first} e a senha ${SEED_PASSWORD}`);

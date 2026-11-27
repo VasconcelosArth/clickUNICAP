@@ -184,7 +184,9 @@ pnpm --filter api test:e2e
 `pnpm --filter api db:seed` cria:
 - usuários `ana@clickunicap.dev`, `bruno@clickunicap.dev` e `carla@clickunicap.dev` (senha `senha123`);
 - um workspace "UNICAP Demo" com os três;
-- 2 projetos com ~30 tarefas em status variados.
+- 2 projetos com ~30 tarefas em status variados;
+- em cada projeto, um campo personalizado de cada tipo (**Área**, **Estimativa (h)**, **Revisão**, **Aprovado pelo
+  cliente** e **Ticket**), com valores nas tarefas, para as colunas da Lista.
 
 O seed fica em `apps/api/src/core/database/seed.ts` e não faz nada se os dados já existirem. Cada frente adiciona seus dados a ele.
 

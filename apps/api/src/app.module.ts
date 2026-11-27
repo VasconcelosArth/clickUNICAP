@@ -8,6 +8,7 @@ import { AllExceptionsFilter } from '@/core/filters/all-exceptions.filter';
 import { MailModule } from '@/core/mail/mail.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { DependenciesModule } from '@/modules/dependencies/dependencies.module';
+import { CustomFieldsModule } from '@/modules/custom-fields/custom-fields.module';
 import { HealthModule } from '@/modules/health/health.module';
 import { NotificationsModule } from '@/modules/notifications/notifications.module';
 import { ProjectsModule } from '@/modules/projects/projects.module';
@@ -36,6 +37,7 @@ import { WorkspacesModule } from '@/modules/workspaces/workspaces.module';
     ProjectsModule,
     TasksModule,
     DependenciesModule,
+    CustomFieldsModule,
     NotificationsModule,
     TimeTrackingModule,
   ],
