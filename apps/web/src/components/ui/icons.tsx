@@ -42,6 +42,22 @@ export function FolderIcon(props: IconProps) {
   );
 }
 
+export function FileIcon(props: IconProps) {
+  return (
+    <Icon16 {...props}>
+      <path d="M10 0H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5l-5-5Zm0 1.4L13.6 5H11a1 1 0 0 1-1-1V1.4ZM4 8h8v1H4V8Zm0 3h8v1H4v-1Z" />
+    </Icon16>
+  );
+}
+
+export function UploadIcon(props: IconProps) {
+  return (
+    <Icon16 {...props}>
+      <path d="M8 0 3.3 4.7l1.4 1.4L7 3.8V11h2V3.8l2.3 2.3 1.4-1.4L8 0ZM1 10v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4h-2v4H3v-4H1Z" />
+    </Icon16>
+  );
+}
+
 export function UsersIcon(props: IconProps) {
   return (
     <Icon16 {...props}>
