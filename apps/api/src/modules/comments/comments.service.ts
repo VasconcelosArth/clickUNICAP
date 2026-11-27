@@ -40,10 +40,10 @@ export class CommentsService {
   async update(ctx: Ctx, id: string, input: UpdateCommentInput): Promise<CommentRow> {
     const found = await this.repo.findById(ctx.workspaceId, id);
     if (!found) throw new NotFoundError('Comment', id);
+    if (found.archived) throw this.archivedError();
     if (found.comment.authorId !== ctx.userId) {
       throw new ForbiddenError('Só o autor pode editar o comentário');
     }
-    if (found.archived) throw this.archivedError();
 
     const previous = await this.repo.listMentionedUserIds(id);
     const mentioned = await this.validMentions(ctx.workspaceId, input.body);

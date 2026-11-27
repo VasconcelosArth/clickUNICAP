@@ -148,6 +148,12 @@ describe('CommentsService', () => {
       await expect(service.update(ctx, 'c1', { body: 'x' })).rejects.toBeInstanceOf(ConflictError);
       expect(repo.updateWithMentions).not.toHaveBeenCalled();
     });
+
+    it('arquivado vem antes da autoria: 409 mesmo para quem não é o autor (update)', async () => {
+      repo.findById.mockResolvedValue({ comment: { id: 'c1', taskId: 't1', authorId: 'outro' }, archived: true });
+      await expect(service.update(ctx, 'c1', { body: 'x' })).rejects.toBeInstanceOf(ConflictError);
+      expect(repo.updateWithMentions).not.toHaveBeenCalled();
+    });
   });
 
   describe('remove', () => {
@@ -172,6 +178,12 @@ describe('CommentsService', () => {
 
     it('ConflictError quando o projeto está arquivado (remove)', async () => {
       repo.findById.mockResolvedValue({ comment: { id: 'c1', taskId: 't1', authorId: 'u1' }, archived: true });
+      await expect(service.remove(ctx, 'c1')).rejects.toBeInstanceOf(ConflictError);
+      expect(repo.remove).not.toHaveBeenCalled();
+    });
+
+    it('arquivado vem antes da autoria: 409 mesmo para quem não é o autor (remove)', async () => {
+      repo.findById.mockResolvedValue({ comment: { id: 'c1', taskId: 't1', authorId: 'outro' }, archived: true });
       await expect(service.remove(ctx, 'c1')).rejects.toBeInstanceOf(ConflictError);
       expect(repo.remove).not.toHaveBeenCalled();
     });
