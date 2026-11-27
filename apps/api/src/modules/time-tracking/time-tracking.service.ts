@@ -136,7 +136,6 @@ export class TimeTrackingService {
       minutes: input.minutes,
       note: input.note ?? null,
     });
-    if (!created) throw new ConflictError('Não foi possível gravar o lançamento', 'TIME_ENTRY_CONFLICT');
     return toTimeEntryDto(await this.mustLoad(ctx.workspaceId, created.id));
   }
 

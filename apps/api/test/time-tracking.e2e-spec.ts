@@ -42,6 +42,9 @@ describe('Controle de tempo (e2e)', () => {
     await http.post(`/api/tasks/${id}/time-entries/start`).expect(401);
     await http.get('/api/time-entries/current').expect(401);
     await http.post('/api/time-entries/current/stop').expect(401);
+    await http.post(`/api/tasks/${id}/time-entries`).send({ minutes: 15 }).expect(401);
+    await http.patch(`/api/time-entries/${id}`).send({ minutes: 15 }).expect(401);
+    await http.delete(`/api/time-entries/${id}`).expect(401);
   });
 
   it('inicia, mostra o timer ativo, para e lista com o total', async () => {
@@ -289,6 +292,26 @@ describe('Controle de tempo (e2e)', () => {
           { taskId: b.id, taskTitle: 'Catalogar acervo', minutes: 30 },
         ],
       });
+    });
+
+    it('conta cada entrada inteira pelo início: [from, to)', async () => {
+      const { ana, h, project, a } = await setup();
+      const from = new Date(Date.now() - 20 * DAY);
+      const to = new Date(Date.now() - 10 * DAY);
+      const at = (base: Date, minutes: number) => new Date(base.getTime() + minutes * 60_000).toISOString();
+      const lanca = (minutes: number, startedAt: string) =>
+        ana.agent.post(`/api/tasks/${a.id}/time-entries`).set(h).send({ minutes, startedAt }).expect(201);
+      await lanca(10, from.toISOString()); // começa no início: entra
+      await lanca(60, at(to, -30)); // começa dentro e termina fora: entra inteira
+      await lanca(60, at(from, -30)); // começa antes e termina dentro: fica de fora
+      await lanca(5, to.toISOString()); // começa no fim, que é aberto: fica de fora
+
+      const res = await ana.agent
+        .get(`/api/projects/${project.id}/time-report`)
+        .set(h)
+        .query({ from: from.toISOString(), to: to.toISOString() })
+        .expect(200);
+      expect(res.body.totalMinutes).toBe(70);
     });
 
     it('sem tempo no período, devolve zero e listas vazias', async () => {

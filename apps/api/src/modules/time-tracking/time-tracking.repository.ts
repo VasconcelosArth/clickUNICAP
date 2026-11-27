@@ -5,10 +5,6 @@ import { projects, tasks, timeEntries, users } from '@/core/database/schema';
 
 export type TimeEntryInsert = typeof timeEntries.$inferInsert;
 
-/**
- * Resultado de `startReplacing`. `elsewhere`: o timer ativo está em outro workspace.
- * `race`: outro início gravou ao mesmo tempo (o service tenta de novo).
- */
 /** Minutos somados de um membro no relatório de horas. */
 export interface MemberMinutesRow {
   userId: string;
@@ -23,6 +19,10 @@ export interface TaskMinutesRow {
   minutes: number;
 }
 
+/**
+ * Resultado de `startReplacing`. `elsewhere`: o timer ativo está em outro workspace.
+ * `race`: outro início gravou ao mesmo tempo (o service tenta de novo).
+ */
 export type StartResult = { startedId: string; stoppedId: string | null } | { rejected: 'elsewhere' | 'race' };
 
 /** Entrada com o nome de quem lançou e o projeto e o título da tarefa (para as regras do service). */
@@ -133,13 +133,13 @@ export class TimeTrackingRepository {
     });
   }
 
-  /** Grava uma entrada já terminada (lançamento manual). */
-  async insert(values: TimeEntryInsert): Promise<{ id: string } | undefined> {
-    const [row] = await this.db
-      .insert(timeEntries)
-      .values(values)
-      .onConflictDoNothing()
-      .returning({ id: timeEntries.id });
+  /**
+   * Grava uma entrada já terminada (lançamento manual). Como `endedAt` vem preenchido, o índice único parcial
+   * (1 timer ativo por usuário) não se aplica e não há conflito possível.
+   */
+  async insert(values: TimeEntryInsert & { endedAt: Date }): Promise<{ id: string }> {
+    const [row] = await this.db.insert(timeEntries).values(values).returning({ id: timeEntries.id });
+    if (!row) throw new Error('Falha ao gravar lançamento de tempo');
     return row;
   }
 
