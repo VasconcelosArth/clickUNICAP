@@ -1,4 +1,5 @@
-import { DEFAULT_MAX_ATTACHMENT_BYTES, validateUpload } from './attachment-rules';
+import { ATTACHMENT_EXTENSIONS, ATTACHMENT_MAX_BYTES } from '@clickunicap/shared';
+import { DEFAULT_MAX_ATTACHMENT_BYTES, allowedExtensions, validateUpload } from './attachment-rules';
 
 const PDF = Buffer.from('%PDF-1.7\n...');
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01]);
@@ -124,5 +125,12 @@ describe('validateUpload', () => {
         MAX,
       ),
     ).toEqual({ ok: false, reason: 'CONTENT_MISMATCH' });
+  });
+});
+
+describe('sincronia com o @clickunicap/shared (validação da tela)', () => {
+  it('as extensões e o limite padrão são os mesmos que a tela usa', () => {
+    expect([...allowedExtensions()].sort()).toEqual([...ATTACHMENT_EXTENSIONS].sort());
+    expect(DEFAULT_MAX_ATTACHMENT_BYTES).toBe(ATTACHMENT_MAX_BYTES);
   });
 });

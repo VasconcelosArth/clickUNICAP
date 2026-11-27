@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attachmentSchema } from './attachment.schema';
+import { ATTACHMENT_EXTENSIONS, ATTACHMENT_MAX_BYTES, attachmentSchema } from './attachment.schema';
 
 const uuid = '3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90';
 
@@ -27,5 +27,20 @@ describe('attachmentSchema', () => {
     expect(attachmentSchema.safeParse({ ...attachment, sizeBytes: -1 }).success).toBe(false);
     expect(attachmentSchema.safeParse({ ...attachment, sizeBytes: 1.5 }).success).toBe(false);
     expect(attachmentSchema.safeParse({ ...attachment, createdAt: '27/11/2026' }).success).toBe(false);
+  });
+});
+
+describe('regras de upload compartilhadas', () => {
+  it('limite padrão de 10 MB', () => {
+    expect(ATTACHMENT_MAX_BYTES).toBe(10 * 1024 * 1024);
+  });
+
+  it('aceita só tipos de documento e imagem, nunca executáveis', () => {
+    expect(ATTACHMENT_EXTENSIONS).toContain('pdf');
+    expect(ATTACHMENT_EXTENSIONS).toContain('png');
+    expect(ATTACHMENT_EXTENSIONS).not.toContain('exe');
+    expect(ATTACHMENT_EXTENSIONS).not.toContain('bat');
+    expect(ATTACHMENT_EXTENSIONS).not.toContain('html');
+    expect(ATTACHMENT_EXTENSIONS).not.toContain('svg');
   });
 });

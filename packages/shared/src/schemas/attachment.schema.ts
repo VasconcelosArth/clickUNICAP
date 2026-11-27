@@ -12,3 +12,21 @@ export const attachmentSchema = z.object({
 });
 
 export type Attachment = z.infer<typeof attachmentSchema>;
+
+/** Limite padrão por arquivo (10 MB). O backend aplica `MAX_UPLOAD_BYTES`; a tela usa este valor para avisar antes. */
+export const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+
+/** Extensões aceitas no upload. O backend também confere o MIME e a assinatura do conteúdo. */
+export const ATTACHMENT_EXTENSIONS = [
+  'pdf',
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'webp',
+  'txt',
+  'csv',
+  'docx',
+  'xlsx',
+  'pptx',
+] as const;
