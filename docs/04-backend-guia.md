@@ -370,7 +370,7 @@ Todas pedem o header `X-Workspace-Id`.
 
 Quem escrever em tarefas (ex.: a rota de mover da Pessoa 3) segue a mesma regra de projeto arquivado.
 Outros módulos usam `TasksService.findOne(workspaceId, taskId)`, que devolve `null` fora do workspace.
-Eventos já emitidos: `task.assigned`, `task.status_changed` e `comment.mentioned`. O módulo `notifications` ouve `task.assigned`.
+Eventos já emitidos: `task.assigned`, `task.status_changed` e `comment.mentioned`. O módulo `notifications` ouve `task.assigned` e `comment.mentioned`.
 `task.due_soon` está no catálogo, mas nada o emite ainda: depende de um agendador, a combinar com a Pessoa 5.
 Para o Swagger, use `@ZodBody(schema)` no body e `@ZodResponse(schema)` na resposta (`core/swagger/zod-body.ts`).
 Em testes e2e, use `createProject` e `createTask` de `test/utils/factories.ts`.
@@ -402,8 +402,9 @@ Todas pedem o header `X-Workspace-Id`.
 
 Menção no formato `@[userId]`, gravada em `comment_mentions`. Só vale para membros do workspace; quem não é membro é
 ignorado. Cada pessoa mencionada gera o evento `comment.mentioned` (com `workspaceId` no payload), exceto o próprio autor.
-Na edição, só as menções novas geram evento. Projeto arquivado é somente leitura. Tarefa ou comentário de outro
+Na edição, só as menções novas geram evento. Projeto arquivado é somente leitura (`409 PROJECT_ARCHIVED`, checado antes da autoria). Tarefa ou comentário de outro
 workspace devolve `404`.
+
 ### Rotas de dependências (já implementadas)
 
 Módulo `dependencies` (Pessoa 9). Todas pedem o header `X-Workspace-Id`. "A depende de B" = A fica esperando B terminar.
