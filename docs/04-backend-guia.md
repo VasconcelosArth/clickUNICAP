@@ -370,7 +370,9 @@ Todas pedem o header `X-Workspace-Id`.
 
 Quem escrever em tarefas (ex.: a rota de mover da Pessoa 3) segue a mesma regra de projeto arquivado.
 Outros módulos usam `TasksService.findOne(workspaceId, taskId)`, que devolve `null` fora do workspace.
-Eventos já emitidos: `task.assigned`, `task.status_changed` e `comment.mentioned`. O módulo `notifications` ouve `task.assigned` e `comment.mentioned`.
+Eventos já emitidos: `task.assigned`, `task.status_changed`, `comment.mentioned` e, ao excluir, `task.deleting`/`task.deleted` (e
+`workspace.deleting`/`workspace.deleted` no módulo `workspaces`; ver [Exclusões em duas fases](#exclusões-em-duas-fases)).
+O módulo `notifications` ouve `task.assigned` e `comment.mentioned`; o `attachments` ouve as exclusões.
 `task.due_soon` está no catálogo, mas nada o emite ainda: depende de um agendador, a combinar com a Pessoa 5.
 Para o Swagger, use `@ZodBody(schema)` no body e `@ZodResponse(schema)` na resposta (`core/swagger/zod-body.ts`).
 Em testes e2e, use `createProject` e `createTask` de `test/utils/factories.ts`.
@@ -496,6 +498,45 @@ manda o período já convertido do fuso de quem usa (início do primeiro dia e i
 causa do horário de verão, o limite de 366 dias tem 1 hora de folga. O export CSV é gerado na tela a partir desta
 resposta, sem rota própria.
 
+### Rotas de anexos (já implementadas)
+
+Módulo `attachments` (Pessoa 7). Todas pedem o header `X-Workspace-Id`. Anexo ou tarefa de outro workspace responde
+404. Projeto arquivado é somente leitura: listar e baixar continuam, enviar e remover dão `409 PROJECT_ARCHIVED`.
+
+| Rota | O que faz |
+|---|---|
+| `POST /api/tasks/:taskId/attachments` | `multipart/form-data` com um arquivo no campo `file`. Devolve o anexo (201) |
+| `GET /api/tasks/:taskId/attachments` | Anexos da tarefa, do mais antigo ao mais novo |
+| `GET /api/attachments/:id` | Metadados: `id`, `taskId`, `fileName`, `mimeType`, `sizeBytes`, `uploadedBy`, `createdAt` |
+| `GET /api/attachments/:id/download` | O arquivo, sempre como download (`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, CSP `sandbox`) |
+| `DELETE /api/attachments/:id` | Só quem enviou ou um admin do workspace (senão `403 FORBIDDEN`). 204 |
+
+Regras do upload, todas no backend (`modules/attachments/utils/attachment-rules.ts`):
+
+- Tamanho máximo em `MAX_UPLOAD_BYTES` (10 MB). O limite é aplicado enquanto o arquivo chega, sem ler o resto.
+- Só extensões da lista: `pdf`, `png`, `jpg`/`jpeg`, `gif`, `webp`, `txt`, `csv`, `docx`, `xlsx`, `pptx`. O MIME
+  informado precisa combinar com a extensão, e o conteúdo é conferido pela assinatura do arquivo (texto não pode ter
+  bytes nulos). O `mimeType` gravado é o do servidor, nunca o do cliente.
+- Erros (422): `FILE_REQUIRED`, `EMPTY_FILE`, `FILE_TOO_LARGE`, `FILE_TYPE_NOT_ALLOWED`, `FILE_CONTENT_MISMATCH`,
+  `INVALID_UPLOAD`.
+- O nome é limpo (sem pastas, caracteres de controle ou reservados, até 200 caracteres) e serve só para exibir. O
+  arquivo é gravado com uma chave `uuid` gerada pelo servidor (`storage_key`), que nunca sai da API.
+
+Os bytes ficam atrás da interface `AttachmentStorage` (`ATTACHMENT_STORAGE`). Hoje só existe o disco
+(`STORAGE_DRIVER=local`, pasta em `STORAGE_LOCAL_PATH`, relativa a `apps/api`); os testes usam
+`MemoryAttachmentStorage`. Se a gravação do arquivo falhar, nada vai para o banco; se o banco falhar, o arquivo é
+apagado. Ao remover, o registro sai primeiro e o arquivo depois (uma falha no disco só vai para o log).
+
+**Exclusão de tarefa ou workspace:** o banco apaga os registros dos anexos em cascata, e o `AttachmentsListener`
+apaga os arquivos: lê as `storage_key` no `task.deleting`/`workspace.deleting` (antes do delete) e remove os arquivos
+no `task.deleted`/`workspace.deleted` (depois do commit). Se a exclusão falhar, nada é apagado; uma falha no disco só
+vai para o log, sem afetar a exclusão. Projetos não são apagados (só arquivados), então não há evento de projeto.
+
+**Limpeza de órfãos:** `pnpm --filter api attachments:orphans [--older-than=60]` compila a API e apaga os arquivos da
+pasta que não têm registro e são mais antigos que o limite em minutos (padrão 60, para nunca tocar num envio em
+andamento). Serve para o que sobrou de antes desta regra, de uma queda da API no meio de uma operação ou de um envio
+que chegou entre a leitura das chaves e o delete. Roda contra o banco do `.env`.
+
 ### Rotas de workspaces (já implementadas)
 
 | Rota | Quem pode |
@@ -548,10 +589,16 @@ export const DomainEvents = {
   TaskStatusChanged: 'task.status_changed',
   TaskDueSoon: 'task.due_soon',
   CommentMentioned: 'comment.mentioned',
+  TaskDeleting: 'task.deleting', // antes do delete (aguardado)
+  TaskDeleted: 'task.deleted', // depois do commit
+  WorkspaceDeleting: 'workspace.deleting',
+  WorkspaceDeleted: 'workspace.deleted',
 } as const;
 
 export interface TaskAssignedPayload { taskId: string; assigneeId: string; by: string; workspaceId: string }
 export interface CommentMentionedPayload { commentId: string; taskId: string; mentionedUserId: string; by: string }
+export interface TaskDeletedPayload { taskId: string; projectId: string; workspaceId: string }
+export interface WorkspaceDeletedPayload { workspaceId: string; by: string }
 ```
 
 ```ts
@@ -567,6 +614,21 @@ export class NotificationsListener {
   }
 }
 ```
+
+### Exclusões em duas fases
+
+O `on delete cascade` apaga os filhos junto, então quem guarda algo **fora do banco** (os arquivos dos anexos) precisa
+ler o que vai sumir antes e agir só depois do commit. Quem exclui emite dois eventos com o **mesmo objeto** de payload:
+
+```ts
+const payload: TaskDeletedPayload = { taskId, projectId: task.projectId, workspaceId };
+await this.events.emitAsync(DomainEvents.TaskDeleting, payload); // ouvintes só leem e se preparam
+await this.repo.delete(workspaceId, taskId);
+this.events.emit(DomainEvents.TaskDeleted, payload); // depois do commit
+```
+
+O ouvinte do `*.deleting` não usa `{ async: true }` (o `emitAsync` precisa esperá-lo) e nunca lança erro para quem
+emitiu. Se o delete falhar, o `*.deleted` não sai e nada é apagado. Exemplo: `modules/attachments/attachments.listener.ts`.
 
 **Quando usar evento e quando chamar o service exportado:**
 - Precisa da resposta ou de garantia de que deu certo antes de continuar? **Chame o service** (ex.: comentários precisam saber se a tarefa existe).

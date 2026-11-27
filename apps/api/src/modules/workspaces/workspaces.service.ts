@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type {
   AcceptInviteInput,
   CreateWorkspaceInput,
@@ -14,6 +15,7 @@ import type { AuthUser } from '@/core/auth';
 import { generateOpaqueToken, hashToken } from '@/core/auth/opaque-token';
 import { AppConfig } from '@/core/config';
 import { ConflictError, DomainError, ForbiddenError, NotFoundError } from '@/core/errors';
+import { DomainEvents, type WorkspaceDeletedPayload } from '@/core/events';
 import type { WorkspaceContext } from '@/core/guards';
 import { MailService } from '@/core/mail/mail.service';
 import { workspaceInviteEmail } from '@/core/mail/templates/workspace-invite.template';
@@ -42,6 +44,7 @@ export class WorkspacesService {
     private readonly users: UsersService,
     private readonly mail: MailService,
     private readonly config: AppConfig,
+    private readonly events: EventEmitter2,
   ) {}
 
   // ---------- workspaces ----------
@@ -68,7 +71,11 @@ export class WorkspacesService {
   async delete(user: AuthUser, ws: WorkspaceContext): Promise<void> {
     const row = await this.mustFind(ws.id);
     if (row.ownerId !== user.id) throw new ForbiddenError('Só o dono pode apagar o workspace');
+    // Em duas fases (ver core/events): quem guarda algo fora do banco se prepara antes e limpa depois do commit
+    const payload: WorkspaceDeletedPayload = { workspaceId: ws.id, by: user.id };
+    await this.events.emitAsync(DomainEvents.WorkspaceDeleting, payload);
     await this.repo.delete(ws.id);
+    this.events.emit(DomainEvents.WorkspaceDeleted, payload);
   }
 
   /** Para outros módulos: o usuário pertence a este workspace? */

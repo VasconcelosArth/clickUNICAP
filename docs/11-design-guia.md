@@ -461,7 +461,12 @@ abaixo e estado vazio para quem ainda não tem workspace.
   dark:text-gray-100`.
 
 **Anexos:** área de envio `border-2 border-dashed border-gray-300 dark:border-gray-700/60 rounded-lg p-5 text-center`,
-com `border-violet-500` ao arrastar. Cada arquivo em uma linha, com ícone, nome, tamanho e ações.
+com `border-violet-500` ao arrastar, o botão `secondary` **Escolher arquivos** e os tipos aceitos como informação
+auxiliar. Cada arquivo em uma linha, com ícone, nome, tamanho, quem enviou, data e ações em botões `ghost` `xs`
+(**Visualizar** só para imagem e PDF, **Baixar**, e **Remover** em cor de erro só para quem enviou ou admin). Envio em
+andamento usa a barra de progresso das subtarefas; arquivo recusado aparece num Alert. O preview abre num Modal `xl`
+com **Baixar** no rodapé. Em projeto arquivado, a área de envio dá lugar ao texto **Projeto arquivado: os anexos ficam
+somente leitura.**
 
 **Campos personalizados:** usam Input, Select, Checkbox e Switch, sem estilo próprio.
 

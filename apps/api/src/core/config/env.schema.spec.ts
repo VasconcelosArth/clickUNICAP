@@ -45,4 +45,25 @@ describe('parseEnv', () => {
   it('rejeita segredo JWT curto', () => {
     expect(() => parseEnv({ ...valid, JWT_REFRESH_SECRET: '123' })).toThrow(/JWT_REFRESH_SECRET/);
   });
+
+  it('usa a pasta ./uploads e o limite de 10 MB para anexos por padrão', () => {
+    const env = parseEnv(valid);
+    expect(env.STORAGE_DRIVER).toBe('local');
+    expect(env.STORAGE_LOCAL_PATH).toBe('./uploads');
+    expect(env.MAX_UPLOAD_BYTES).toBe(10 * 1024 * 1024);
+  });
+
+  it('rejeita STORAGE_DRIVER desconhecido', () => {
+    expect(() => parseEnv({ ...valid, STORAGE_DRIVER: 's3' })).toThrow(/STORAGE_DRIVER/);
+  });
+
+  it('converte MAX_UPLOAD_BYTES de string para número', () => {
+    expect(parseEnv({ ...valid, MAX_UPLOAD_BYTES: '2048' }).MAX_UPLOAD_BYTES).toBe(2048);
+  });
+
+  it('rejeita MAX_UPLOAD_BYTES inválido ou acima do teto de 50 MB', () => {
+    expect(() => parseEnv({ ...valid, MAX_UPLOAD_BYTES: '0' })).toThrow(/MAX_UPLOAD_BYTES/);
+    expect(() => parseEnv({ ...valid, MAX_UPLOAD_BYTES: 'abc' })).toThrow(/MAX_UPLOAD_BYTES/);
+    expect(() => parseEnv({ ...valid, MAX_UPLOAD_BYTES: String(51 * 1024 * 1024) })).toThrow(/MAX_UPLOAD_BYTES/);
+  });
 });

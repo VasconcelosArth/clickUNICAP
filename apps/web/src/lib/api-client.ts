@@ -50,13 +50,17 @@ function buildHeaders(hasBody: boolean): HeadersInit {
   };
 }
 
-async function toApiError(response: Response): Promise<ApiError> {
-  const parsed = apiErrorSchema.safeParse(await response.json().catch(() => null));
+function apiErrorFromBody(status: number, body: unknown): ApiError {
+  const parsed = apiErrorSchema.safeParse(body);
   if (parsed.success) {
     const { statusCode, error, message, details } = parsed.data;
     return new ApiError(statusCode, error, message, details);
   }
-  return new ApiError(response.status, 'UnknownError', 'Não foi possível concluir a operação.');
+  return new ApiError(status, 'UnknownError', 'Não foi possível concluir a operação.');
+}
+
+async function toApiError(response: Response): Promise<ApiError> {
+  return apiErrorFromBody(response.status, await response.json().catch(() => null));
 }
 
 let refreshing: Promise<boolean> | null = null;
@@ -73,6 +77,15 @@ function refreshSession(): Promise<boolean> {
   return refreshing;
 }
 
+/** 401 fora das rotas de autenticação: tenta renovar uma vez; devolve true se vale repetir a requisição. */
+async function shouldRetryAfter401(status: number, path: string, isRetry: boolean): Promise<boolean> {
+  // Nas rotas de autenticação, 401 é resposta de negócio (senha errada), não sessão vencida
+  if (status !== 401 || path.startsWith('/auth/')) return false;
+  if (!isRetry && (await refreshSession())) return true;
+  sessionExpiredListeners.forEach((listener) => listener());
+  return false;
+}
+
 async function request<T>(method: string, path: string, options: RequestOptions, isRetry = false): Promise<T> {
   const hasBody = options.body !== undefined;
   let response: Response;
@@ -87,15 +100,68 @@ async function request<T>(method: string, path: string, options: RequestOptions,
     throw new ApiError(0, 'NetworkError', 'Não foi possível conectar ao servidor.');
   }
 
-  // Nas rotas de autenticação, 401 é resposta de negócio (senha errada), não sessão vencida
-  if (response.status === 401 && !path.startsWith('/auth/')) {
-    if (!isRetry && (await refreshSession())) return request<T>(method, path, options, true);
-    sessionExpiredListeners.forEach((listener) => listener());
-  }
+  if (await shouldRetryAfter401(response.status, path, isRetry)) return request<T>(method, path, options, true);
 
   if (!response.ok) throw await toApiError(response);
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+/** Baixa um arquivo como Blob (download e preview de anexos). */
+async function requestBlob(path: string, isRetry = false): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, undefined), {
+      method: 'GET',
+      credentials: 'include',
+      headers: buildHeaders(false),
+    });
+  } catch {
+    throw new ApiError(0, 'NetworkError', 'Não foi possível conectar ao servidor.');
+  }
+  if (await shouldRetryAfter401(response.status, path, isRetry)) return requestBlob(path, true);
+  if (!response.ok) throw await toApiError(response);
+  return response.blob();
+}
+
+export interface UploadOptions {
+  /** Fração enviada, de 0 a 1. */
+  onProgress?: (fraction: number) => void;
+  signal?: AbortSignal;
+}
+
+/** O fetch não informa o progresso do envio: o upload usa XMLHttpRequest, com as mesmas regras do request. */
+function sendForm(path: string, form: FormData, options: UploadOptions): Promise<{ status: number; text: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', buildUrl(path, undefined));
+    xhr.withCredentials = true;
+    Object.entries(buildHeaders(false)).forEach(([name, value]) => xhr.setRequestHeader(name, String(value)));
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) options.onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => resolve({ status: xhr.status, text: xhr.responseText });
+    xhr.onerror = () => reject(new ApiError(0, 'NetworkError', 'Não foi possível conectar ao servidor.'));
+    xhr.onabort = () => reject(new ApiError(0, 'AbortError', 'Envio cancelado.'));
+    options.signal?.addEventListener('abort', () => xhr.abort(), { once: true });
+    xhr.send(form);
+  });
+}
+
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function upload<T>(path: string, form: FormData, options: UploadOptions, isRetry = false): Promise<T> {
+  const { status, text } = await sendForm(path, form, options);
+  if (await shouldRetryAfter401(status, path, isRetry)) return upload<T>(path, form, options, true);
+  if (status < 200 || status >= 300) throw apiErrorFromBody(status, parseJson(text));
+  options.onProgress?.(1);
+  return parseJson(text) as T;
 }
 
 export const api = {
@@ -103,4 +169,7 @@ export const api = {
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, { body }),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, { body }),
   delete: <T = void>(path: string) => request<T>('DELETE', path, {}),
+  /** `multipart/form-data`, com progresso do envio. */
+  upload: <T>(path: string, form: FormData, options: UploadOptions = {}) => upload<T>(path, form, options),
+  getBlob: (path: string) => requestBlob(path),
 };

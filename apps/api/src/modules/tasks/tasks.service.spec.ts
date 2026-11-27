@@ -40,7 +40,7 @@ describe('TasksService', () => {
   };
   const projects = { get: jest.fn() };
   const workspaces = { isMember: jest.fn() };
-  const events = { emit: jest.fn() };
+  const events = { emit: jest.fn(), emitAsync: jest.fn() };
   let service: TasksService;
 
   beforeEach(async () => {
@@ -283,6 +283,28 @@ describe('TasksService', () => {
     expect(repo.delete).toHaveBeenCalledWith('w1', 't1');
   });
 
+  it('delete avisa antes (aguardando) e depois do commit, com o mesmo payload', async () => {
+    const order: string[] = [];
+    repo.findById.mockResolvedValue(task());
+    events.emitAsync.mockImplementation(async (name: string) => order.push(name));
+    repo.delete.mockImplementation(async () => order.push('delete'));
+    events.emit.mockImplementation((name: string) => order.push(name));
+
+    await service.delete('w1', 't1');
+
+    expect(order).toEqual([DomainEvents.TaskDeleting, 'delete', DomainEvents.TaskDeleted]);
+    const before = events.emitAsync.mock.calls[0]?.[1];
+    expect(before).toEqual({ taskId: 't1', projectId: 'p1', workspaceId: 'w1' });
+    expect(events.emit.mock.calls[0]?.[1]).toBe(before);
+  });
+
+  it('delete que falha no banco não emite task.deleted', async () => {
+    repo.findById.mockResolvedValue(task());
+    repo.delete.mockRejectedValue(new Error('banco fora do ar'));
+    await expect(service.delete('w1', 't1')).rejects.toThrow('banco fora do ar');
+    expect(events.emit).not.toHaveBeenCalled();
+  });
+
   it('findOne devolve null fora do workspace', async () => {
     repo.findById.mockResolvedValue(undefined);
     await expect(service.findOne('w1', 't1')).resolves.toBeNull();
@@ -301,6 +323,7 @@ describe('TasksService', () => {
     repo.findById.mockResolvedValue(undefined);
     await expect(service.delete('w1', 't1')).rejects.toBeInstanceOf(NotFoundError);
     expect(repo.delete).not.toHaveBeenCalled();
+    expect(events.emitAsync).not.toHaveBeenCalled();
   });
 });
 

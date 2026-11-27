@@ -21,6 +21,18 @@ export const envSchema = z
     MAIL_TRANSPORT: z.enum(['log', 'resend']).default('log'),
     MAIL_FROM: z.string().min(3).default('ClickUNICAP <onboarding@resend.dev>'),
     RESEND_API_KEY: z.string().optional(),
+
+    /** Onde ficam os arquivos dos anexos. Por enquanto só existe o disco local. */
+    STORAGE_DRIVER: z.enum(['local']).default('local'),
+    /** Pasta dos anexos com STORAGE_DRIVER=local (relativa à pasta da API, ou um caminho absoluto). */
+    STORAGE_LOCAL_PATH: z.string().min(1).default('./uploads'),
+    /** Tamanho máximo de um anexo, em bytes (padrão 10 MB, teto 50 MB). */
+    MAX_UPLOAD_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(50 * 1024 * 1024)
+      .default(10 * 1024 * 1024),
   })
   .superRefine((env, ctx) => {
     if (env.MAIL_TRANSPORT === 'resend' && !env.RESEND_API_KEY?.startsWith('re_')) {

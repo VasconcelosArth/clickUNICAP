@@ -1,7 +1,9 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { hashToken } from '@/core/auth/opaque-token';
 import { AppConfig } from '@/core/config';
 import { ConflictError, DomainError, ForbiddenError, NotFoundError } from '@/core/errors';
+import { DomainEvents } from '@/core/events';
 import type { WorkspaceContext } from '@/core/guards';
 import { MailService } from '@/core/mail/mail.service';
 import { UsersService } from '@/modules/users/users.service';
@@ -41,6 +43,7 @@ describe('WorkspacesService', () => {
   const users = { getProfile: jest.fn() };
   const mail = { send: jest.fn() };
   const config = { webUrl: 'http://localhost:5173' } as AppConfig;
+  const events = { emit: jest.fn(), emitAsync: jest.fn() };
   let service: WorkspacesService;
 
   beforeEach(async () => {
@@ -53,6 +56,7 @@ describe('WorkspacesService', () => {
         { provide: UsersService, useValue: users },
         { provide: MailService, useValue: mail },
         { provide: AppConfig, useValue: config },
+        { provide: EventEmitter2, useValue: events },
       ],
     }).compile();
     service = mod.get(WorkspacesService);
@@ -72,9 +76,24 @@ describe('WorkspacesService', () => {
       expect(repo.delete).toHaveBeenCalledWith('w1');
     });
 
+    it('avisa antes (aguardando) e depois do commit, com o mesmo payload', async () => {
+      const order: string[] = [];
+      events.emitAsync.mockImplementation(async (name: string) => order.push(name));
+      repo.delete.mockImplementation(async () => order.push('delete'));
+      events.emit.mockImplementation((name: string) => order.push(name));
+
+      await service.delete(owner, asAdmin);
+
+      expect(order).toEqual([DomainEvents.WorkspaceDeleting, 'delete', DomainEvents.WorkspaceDeleted]);
+      const before = events.emitAsync.mock.calls[0]?.[1];
+      expect(before).toEqual({ workspaceId: 'w1', by: OWNER });
+      expect(events.emit.mock.calls[0]?.[1]).toBe(before);
+    });
+
     it('admin que não é dono recebe ForbiddenError', async () => {
       await expect(service.delete(bia, asAdmin)).rejects.toBeInstanceOf(ForbiddenError);
       expect(repo.delete).not.toHaveBeenCalled();
+      expect(events.emitAsync).not.toHaveBeenCalled();
     });
   });
 

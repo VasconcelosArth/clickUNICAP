@@ -9,7 +9,12 @@ import type {
   MoveTaskInput,
 } from '@clickunicap/shared';
 import { ConflictError, DomainError, NotFoundError } from '@/core/errors';
-import { DomainEvents, type TaskAssignedPayload, type TaskStatusChangedPayload } from '@/core/events';
+import {
+  DomainEvents,
+  type TaskAssignedPayload,
+  type TaskDeletedPayload,
+  type TaskStatusChangedPayload,
+} from '@/core/events';
 import { ProjectsService } from '@/modules/projects/projects.service';
 import { WorkspacesService } from '@/modules/workspaces/workspaces.service';
 import { type NewTaskRow, type TaskRow, TasksRepository } from './tasks.repository';
@@ -171,7 +176,11 @@ export class TasksService {
   async delete(workspaceId: string, taskId: string): Promise<void> {
     const current = await this.mustFind(workspaceId, taskId);
     await this.assertNotArchived(workspaceId, current.projectId);
+    // Em duas fases (ver core/events): quem guarda algo fora do banco se prepara antes e limpa depois do commit
+    const payload: TaskDeletedPayload = { taskId, projectId: current.projectId, workspaceId };
+    await this.events.emitAsync(DomainEvents.TaskDeleting, payload);
     await this.repo.delete(workspaceId, taskId);
+    this.events.emit(DomainEvents.TaskDeleted, payload);
   }
 
   private async mustFind(workspaceId: string, taskId: string): Promise<TaskRow> {

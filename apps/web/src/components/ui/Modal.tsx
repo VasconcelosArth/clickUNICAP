@@ -54,6 +54,8 @@ export function Modal({ open, onClose, title, size = 'lg', footer, children }: M
         onClick={closeOnBackdrop}
         onCancel={(event) => {
           event.preventDefault();
+          // Num modal aberto sobre outro (ex.: preview de anexo sobre a tarefa), o Esc fecha só o de cima
+          event.stopPropagation();
           onClose();
         }}
         className={cn(

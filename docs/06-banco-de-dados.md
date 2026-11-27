@@ -134,6 +134,15 @@ time_entries                    (Pessoa 10)
   índice único parcial: (user_id) where ended_at is null   -- garante 1 timer ativo por usuário
 ```
 
+> **Referências a usuários com `restrict`** (como `attachments.uploaded_by` e `comments.author_id`):
+> é de propósito. Não existe rota para apagar conta; quem sai de um workspace só perde a participação, e o que a pessoa
+> enviou continua lá, com a autoria. Se um dia houver exclusão de conta, ela precisa decidir antes o que fazer com esses
+> registros (anonimizar ou transferir), numa migration nova e com ADR.
+>
+> **Arquivos fora do banco:** apagar uma tarefa ou um workspace apaga os registros de `attachments` em cascata; os
+> arquivos saem do storage pelo módulo `attachments` (eventos `*.deleting`/`*.deleted`, ver
+> [04 — Exclusões em duas fases](04-backend-guia.md#exclusões-em-duas-fases)).
+
 ## Onde está cada tabela no código
 
 Todas as tabelas já existem (Etapa 0). Cada frente **usa** a sua; para alterar, edite o arquivo e gere uma migration.
@@ -187,6 +196,8 @@ pnpm --filter api test:e2e
 - 2 projetos com ~30 tarefas em status variados;
 - em cada projeto, um campo personalizado de cada tipo (**Área**, **Estimativa (h)**, **Revisão**, **Aprovado pelo
   cliente** e **Ticket**), com valores nas tarefas, para as colunas da Lista.
+- 2 anexos (`briefing.txt` e `wireframe.png`) na primeira tarefa do "App Mobile", com os arquivos gravados em
+  `STORAGE_LOCAL_PATH`.
 
 O seed fica em `apps/api/src/core/database/seed.ts` e não faz nada se os dados já existirem. Cada frente adiciona seus dados a ele.
 

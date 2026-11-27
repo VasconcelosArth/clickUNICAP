@@ -1,3 +1,4 @@
+import { attachmentsHandlers } from '@/features/attachments/mocks/attachments.handlers';
 import { authHandlers } from '@/features/auth/mocks/auth.handlers';
 import { customFieldsHandlers } from '@/features/custom-fields/mocks/custom-fields.handlers';
 import { dependenciesHandlers } from '@/features/dependencies/mocks/dependencies.handlers';
@@ -21,6 +22,7 @@ export const handlers = [
   ...subtasksHandlers,
   ...commentsHandlers,
   ...dependenciesHandlers,
+  ...attachmentsHandlers,
   ...ganttHandlers,
   ...notificationsHandlers,
   ...timeTrackingHandlers,

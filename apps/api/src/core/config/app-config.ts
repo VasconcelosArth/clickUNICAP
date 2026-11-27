@@ -32,6 +32,10 @@ export class AppConfig {
   get mail() {
     return { transport: this.env.MAIL_TRANSPORT, from: this.env.MAIL_FROM, resendApiKey: this.env.RESEND_API_KEY };
   }
+  /** Armazenamento de anexos: pasta e tamanho máximo por arquivo (bytes). */
+  get uploads() {
+    return { driver: this.env.STORAGE_DRIVER, dir: this.env.STORAGE_LOCAL_PATH, maxBytes: this.env.MAX_UPLOAD_BYTES };
+  }
   get jwt() {
     return {
       accessSecret: this.env.JWT_ACCESS_SECRET,
