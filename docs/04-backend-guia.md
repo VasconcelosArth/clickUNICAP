@@ -433,8 +433,10 @@ workspace. A resposta só diz que ele existe, sem mostrar a tarefa. Os minutos s
 (`utils/duration.ts`), e um lançamento manual vai de 1 min a 24 h. Editar e excluir: o autor ou um admin do workspace
 (senão 403). Projeto arquivado é somente leitura (`PROJECT_ARCHIVED`, 409), mas o timer ativo ainda pode ser parado,
 também pela troca automática. Excluir a tarefa apaga o tempo dela, inclusive o timer ativo. No relatório, o timer que
-ainda conta fica de fora, e a tela manda o período já convertido do fuso de quem usa (início do primeiro dia e início
-do dia seguinte ao último).
+ainda conta fica de fora, e cada entrada conta inteira no período em que começou (não é cortada no limite). A tela
+manda o período já convertido do fuso de quem usa (início do primeiro dia e início do dia seguinte ao último); por
+causa do horário de verão, o limite de 366 dias tem 1 hora de folga. O export CSV é gerado na tela a partir desta
+resposta, sem rota própria.
 
 ### Rotas de workspaces (já implementadas)
 

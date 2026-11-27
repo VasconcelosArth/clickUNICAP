@@ -1,10 +1,11 @@
 import type { TimeReport } from '@clickunicap/shared';
 import { lazy, Suspense, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Alert, Card, CardHeader, EmptyState, ErrorState, FormField, Input, Skeleton } from '@/components/ui';
+import { Alert, Button, Card, CardHeader, EmptyState, ErrorState, FormField, Input, Skeleton } from '@/components/ui';
 import { useTaskLink } from '@/hooks/useTaskLink';
 import { useTimeReport } from '../api/time-tracking.queries';
 import { useReportPeriod } from '../hooks/useReportPeriod';
+import { downloadCsv, timeReportFileName, timeReportToCsv } from '../utils/csv';
 import { formatMinutes } from '../utils/format';
 
 // O Chart.js só carrega nesta tela: a feature também entra no detalhe da tarefa (slot), que não usa o gráfico
@@ -157,12 +158,23 @@ export function TimeReportPage() {
           )}
         </FormField>
         {report.data && !rangeError && (
-          <p className="text-sm sm:ml-auto sm:pb-2" aria-live="polite">
-            Total no período:{' '}
-            <span className="font-semibold text-gray-800 dark:text-gray-100">
-              {formatMinutes(report.data.totalMinutes)}
-            </span>
-          </p>
+          <div className="flex items-center gap-4 sm:ml-auto">
+            <p className="text-sm" aria-live="polite">
+              Total no período:{' '}
+              <span className="font-semibold text-gray-800 dark:text-gray-100">
+                {formatMinutes(report.data.totalMinutes)}
+              </span>
+            </p>
+            {report.data.totalMinutes > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => report.data && downloadCsv(timeReportFileName(range), timeReportToCsv(report.data))}
+              >
+                Exportar CSV
+              </Button>
+            )}
+          </div>
         )}
       </div>
       {content}

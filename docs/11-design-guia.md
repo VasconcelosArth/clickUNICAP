@@ -481,7 +481,10 @@ com `border-violet-500` ao arrastar. Cada arquivo em uma linha, com ícone, nome
 **Relatório de horas** (aba **Horas** do projeto)
 
 - Período com dois Inputs de data, **De** e **Até**, na URL; sem período, os últimos 30 dias. À direita, **Total no
-  período** como texto auxiliar com o valor em texto forte. Período inválido mostra um Alert e não busca.
+  período** como texto auxiliar com o valor em texto forte e, com tempo no período, o botão `secondary` `sm`
+  **Exportar CSV**. Período inválido mostra um Alert e não busca.
+- O CSV é gerado na tela a partir do relatório já carregado (sem rota própria): `;` como separador, horas com vírgula,
+  UTF-8 com BOM para o Excel, uma linha por membro e por tarefa e o total no fim. Nome `horas-<de>-a-<até>.csv`.
 - Dois Cards em `grid grid-cols-12 gap-6`, cada um `col-span-full xl:col-span-6`: **Por membro** (gráfico de barras
   horizontais e tabela) e **Por tarefa** (tabela, com a tarefa como link para o detalhe). Colunas **Tempo** e **Do
   total** alinhadas à direita, com `tabular-nums`.

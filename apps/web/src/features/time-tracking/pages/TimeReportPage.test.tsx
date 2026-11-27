@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { ids } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 import { renderWithProviders } from '@/test/render';
+import * as csv from '../utils/csv';
 import { TimeReportPage } from './TimeReportPage';
 
 // O canvas do Chart.js não roda no jsdom: o gráfico vira só o resumo acessível dele
@@ -113,12 +114,25 @@ describe('TimeReportPage', () => {
     expect(periods).toEqual([]);
   });
 
+  it('exporta o relatório do período em CSV', async () => {
+    const user = userEvent.setup();
+    const download = vi.spyOn(csv, 'downloadCsv').mockImplementation(() => undefined);
+    respond(report());
+    renderWithProviders(<TimeReportPage />, { route: novembro, path });
+
+    await user.click(await screen.findByRole('button', { name: 'Exportar CSV' }));
+
+    expect(download).toHaveBeenCalledWith('horas-2026-11-01-a-2026-11-30.csv', csv.timeReportToCsv(report()));
+    download.mockRestore();
+  });
+
   it('sem tempo no período, mostra o vazio', async () => {
     respond(report({ totalMinutes: 0, byMember: [], byTask: [] }));
     renderWithProviders(<TimeReportPage />, { route: novembro, path });
 
     expect(await screen.findByText('Nenhum tempo lançado neste período')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Exportar CSV' })).not.toBeInTheDocument();
   });
 
   it('mostra o erro da API e tenta de novo', async () => {
