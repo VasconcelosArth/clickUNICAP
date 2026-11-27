@@ -401,10 +401,21 @@ Módulo `custom-fields` (Pessoa 8). Todas as rotas exigem o header `X-Workspace-
 | `POST /api/projects/:projectId/custom-fields` | Administradores. Cria campo com nome, tipo, opções de dropdown e obrigatoriedade |
 | `PATCH /api/custom-fields/:fieldId` | Administradores. Atualiza nome, opções, obrigatoriedade ou posição |
 | `DELETE /api/custom-fields/:fieldId` | Administradores. Exclui o campo e seus valores associados |
+| `GET /api/projects/:projectId/custom-field-values` | Membros do workspace. Valores de todas as tarefas do projeto numa chamada, `{ taskId: { fieldId: value } }` (tarefa sem valor não aparece). Usado pelas colunas da Lista |
 | `GET /api/tasks/:taskId/custom-field-values` | Membros do workspace. Lista os valores personalizados da tarefa |
 | `PATCH /api/tasks/:taskId/custom-field-values` | Membros do workspace. Salva valores no body `{ values: { fieldId: value } }` |
 
 Tipos disponíveis: `text`, `number`, `date`, `dropdown` e `checkbox`. O dropdown exige opções cadastradas. Os valores são validados conforme o tipo e campos obrigatórios não aceitam valores vazios ou nulos. O tipo de um campo não pode ser alterado depois da criação.
+
+**Campo obrigatório: até onde vale.** A obrigatoriedade é conferida **só ao gravar valores** (`PATCH .../custom-field-values`),
+e só para os campos enviados no body: o frontend manda apenas os campos alterados. Criar uma tarefa
+(`POST /projects/:projectId/tasks`, módulo `tasks`) não exige os campos obrigatórios, e marcar `isRequired` num campo
+que já existe não revalida as tarefas antigas: elas continuam sem valor até alguém editar aquele campo.
+Checkbox obrigatório só aceita `true` ("precisa estar marcado", como um aceite); `false` e `null` dão `REQUIRED_FIELD`.
+
+O nome é único por projeto, sem diferenciar maiúsculas. A checagem e a gravação (criar e renomear) rodam numa transação
+que trava a linha do projeto (`SELECT ... FOR UPDATE`, igual a `dependencies`), para duas requisições simultâneas não
+criarem nomes repetidos. Não há constraint no banco para isso.
 
 Erros de domínio relevantes: `CUSTOM_FIELD_NAME_EXISTS` (409), `OPTION_IN_USE` (409), `PROJECT_ARCHIVED` (409), `REQUIRED_FIELD` (400) e `INVALID_FIELD_VALUE` (400). Projetos arquivados permitem leitura, mas não criação, edição, exclusão ou gravação de valores. Acesso a projeto, campo ou tarefa de outro workspace resulta em 404.
 

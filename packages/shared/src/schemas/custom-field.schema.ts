@@ -58,6 +58,11 @@ export const updateCustomFieldSchema = z
 export type UpdateCustomFieldInput = z.infer<typeof updateCustomFieldSchema>;
 
 export const taskCustomFieldValuesSchema = z.record(idSchema, customFieldValueSchema);
+export type TaskCustomFieldValues = z.infer<typeof taskCustomFieldValuesSchema>;
+
+/** Valores de todas as tarefas de um projeto, por tarefa: `{ taskId: { fieldId: value } }`. Usado pela Lista. */
+export const projectCustomFieldValuesSchema = z.record(idSchema, taskCustomFieldValuesSchema);
+export type ProjectCustomFieldValues = z.infer<typeof projectCustomFieldValuesSchema>;
 export const updateTaskCustomFieldValuesSchema = z.object({ values: taskCustomFieldValuesSchema });
 export type UpdateTaskCustomFieldValuesInput = z.infer<typeof updateTaskCustomFieldValuesSchema>;
 

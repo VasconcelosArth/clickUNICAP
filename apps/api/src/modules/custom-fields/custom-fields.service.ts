@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { CreateCustomFieldInput, CustomField, UpdateCustomFieldInput } from '@clickunicap/shared';
+import type {
+  CreateCustomFieldInput,
+  CustomField,
+  ProjectCustomFieldValues,
+  UpdateCustomFieldInput,
+} from '@clickunicap/shared';
 import { customFieldDateValueSchema } from '@clickunicap/shared';
 import { ConflictError, DomainError, NotFoundError } from '@/core/errors';
 import { ProjectsService } from '@/modules/projects/projects.service';
@@ -35,15 +40,18 @@ export class CustomFieldsService {
   async create(workspaceId: string, projectId: string, input: CreateCustomFieldInput): Promise<CustomField> {
     const project = await this.projects.get(workspaceId, projectId);
     this.assertNotArchived(project.archivedAt);
-    await this.assertUniqueName(workspaceId, projectId, input.name);
-    const position = input.position ?? ((await this.repo.maxPosition(workspaceId, projectId)) ?? -1) + 1;
-    const row = await this.repo.insert({
-      projectId,
-      name: input.name,
-      type: input.type,
-      options: input.type === 'dropdown' ? (input.options ?? []) : null,
-      isRequired: input.isRequired,
-      position,
+    // Checagem e gravação com o projeto travado: duas criações simultâneas não passam com o mesmo nome.
+    const row = await this.repo.insertLocked(workspaceId, projectId, (current) => {
+      this.assertUniqueName(current, input.name);
+      const maxPosition = current.reduce((max, field) => Math.max(max, field.position), -1);
+      return {
+        projectId,
+        name: input.name,
+        type: input.type,
+        options: input.type === 'dropdown' ? (input.options ?? []) : null,
+        isRequired: input.isRequired,
+        position: input.position ?? maxPosition + 1,
+      };
     });
     return toCustomFieldDto(row);
   }
@@ -52,7 +60,6 @@ export class CustomFieldsService {
     const field = await this.mustFindField(workspaceId, fieldId);
     const project = await this.projects.get(workspaceId, field.projectId);
     this.assertNotArchived(project.archivedAt);
-    if (input.name) await this.assertUniqueName(workspaceId, field.projectId, input.name, fieldId);
 
     if (input.options && field.type !== 'dropdown') {
       throw new DomainError('Este campo não possui opções', 'FIELD_NOT_DROPDOWN', 400);
@@ -65,7 +72,10 @@ export class CustomFieldsService {
         throw new ConflictError('Não é possível remover opções que já estão usadas em tarefas', 'OPTION_IN_USE');
     }
 
-    const row = await this.repo.update(workspaceId, fieldId, input);
+    const name = input.name;
+    const row = await this.repo.updateLocked(workspaceId, field.projectId, fieldId, input, (current) => {
+      if (name) this.assertUniqueName(current, name, fieldId);
+    });
     if (!row) throw new NotFoundError('Campo personalizado', fieldId);
     return toCustomFieldDto(row);
   }
@@ -82,6 +92,16 @@ export class CustomFieldsService {
     if (!task) throw new NotFoundError('Tarefa', taskId);
     const rows = await this.repo.listTaskValues(workspaceId, taskId);
     return Object.fromEntries(rows.map((row) => [row.fieldId, row.value]));
+  }
+
+  /** Valores de todas as tarefas do projeto, agrupados por tarefa (colunas da Lista). */
+  async listProjectValues(workspaceId: string, projectId: string): Promise<ProjectCustomFieldValues> {
+    await this.projects.get(workspaceId, projectId);
+    const result: ProjectCustomFieldValues = {};
+    for (const row of await this.repo.listProjectValues(workspaceId, projectId)) {
+      (result[row.taskId] ??= {})[row.fieldId] = row.value;
+    }
+    return result;
   }
 
   async updateTaskValues(
@@ -145,8 +165,7 @@ export class CustomFieldsService {
     }
   }
 
-  private async assertUniqueName(workspaceId: string, projectId: string, name: string, exceptId?: string) {
-    const fields = await this.repo.listForProject(workspaceId, projectId);
+  private assertUniqueName(fields: CustomFieldRow[], name: string, exceptId?: string) {
     if (fields.some((field) => field.id !== exceptId && field.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
       throw new ConflictError('Já existe um campo com esse nome neste projeto', 'CUSTOM_FIELD_NAME_EXISTS');
     }

@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import { MailService } from '@/core/mail/mail.service';
 import { registerUser, registerUserWithWorkspace } from './utils/auth-helpers';
 import { createTestApp, resetDatabase } from './utils/create-test-app';
@@ -20,6 +21,70 @@ describe('Campos personalizados (e2e)', () => {
     const task = await createTask(context.agent, context.workspace.id, project.id);
     return { ...context, headers, project, task };
   }
+
+  it('401 sem login', async () => {
+    const id = '3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90';
+    const server = app.getHttpServer();
+    await request(server).get(`/api/projects/${id}/custom-fields`).expect(401);
+    await request(server).post(`/api/projects/${id}/custom-fields`).send({ name: 'X', type: 'text' }).expect(401);
+    await request(server).get(`/api/projects/${id}/custom-field-values`).expect(401);
+    await request(server).patch(`/api/custom-fields/${id}`).send({ name: 'X' }).expect(401);
+    await request(server).delete(`/api/custom-fields/${id}`).expect(401);
+    await request(server).get(`/api/tasks/${id}/custom-field-values`).expect(401);
+    await request(server).patch(`/api/tasks/${id}/custom-field-values`).send({ values: {} }).expect(401);
+  });
+
+  it('lista os valores de todas as tarefas do projeto, só do próprio projeto', async () => {
+    const { agent, headers, workspace, project, task } = await setup();
+    const other = await createTask(agent, workspace.id, project.id);
+    const fieldsUrl = `/api/projects/${project.id}/custom-fields`;
+    const text = await agent.post(fieldsUrl).set(headers).send({ name: 'Código', type: 'text' }).expect(201);
+    const number = await agent.post(fieldsUrl).set(headers).send({ name: 'Horas', type: 'number' }).expect(201);
+
+    const valuesUrl = `/api/projects/${project.id}/custom-field-values`;
+    expect((await agent.get(valuesUrl).set(headers).expect(200)).body).toEqual({});
+
+    await agent
+      .patch(`/api/tasks/${task.id}/custom-field-values`)
+      .set(headers)
+      .send({ values: { [text.body.id]: 'A-01', [number.body.id]: 3 } })
+      .expect(200);
+    await agent
+      .patch(`/api/tasks/${other.id}/custom-field-values`)
+      .set(headers)
+      .send({ values: { [number.body.id]: 1.5 } })
+      .expect(200);
+
+    const secondProject = await createProject(agent, workspace.id, 'Outro projeto');
+    const secondTask = await createTask(agent, workspace.id, secondProject.id);
+    const secondField = await agent
+      .post(`/api/projects/${secondProject.id}/custom-fields`)
+      .set(headers)
+      .send({ name: 'Código', type: 'text' })
+      .expect(201);
+    await agent
+      .patch(`/api/tasks/${secondTask.id}/custom-field-values`)
+      .set(headers)
+      .send({ values: { [secondField.body.id]: 'B-01' } })
+      .expect(200);
+
+    expect((await agent.get(valuesUrl).set(headers).expect(200)).body).toEqual({
+      [task.id]: { [text.body.id]: 'A-01', [number.body.id]: 3 },
+      [other.id]: { [number.body.id]: 1.5 },
+    });
+    await agent.get('/api/projects/nao-e-uuid/custom-field-values').set(headers).expect(400);
+  });
+
+  it('não cria dois campos com o mesmo nome mesmo em requisições simultâneas', async () => {
+    const { agent, headers, project } = await setup();
+    const url = `/api/projects/${project.id}/custom-fields`;
+    const responses = await Promise.all(
+      ['Revisão', 'REVISÃO', 'revisão'].map((name) => agent.post(url).set(headers).send({ name, type: 'text' })),
+    );
+
+    expect(responses.map((res) => res.status).sort()).toEqual([201, 409, 409]);
+    expect((await agent.get(url).set(headers).expect(200)).body).toHaveLength(1);
+  });
 
   it('cria, lista, atualiza e exclui campos; lê, grava e valida valores da tarefa', async () => {
     const { agent, headers, project, task } = await setup();
@@ -199,6 +264,7 @@ describe('Campos personalizados (e2e)', () => {
       .expect(404);
     await intruder.agent.delete(`/api/custom-fields/${field.body.id}`).set(otherHeaders).expect(404);
     await intruder.agent.get(`/api/tasks/${owner.task.id}/custom-field-values`).set(otherHeaders).expect(404);
+    await intruder.agent.get(`/api/projects/${owner.project.id}/custom-field-values`).set(otherHeaders).expect(404);
     await intruder.agent
       .patch(`/api/tasks/${owner.task.id}/custom-field-values`)
       .set(otherHeaders)

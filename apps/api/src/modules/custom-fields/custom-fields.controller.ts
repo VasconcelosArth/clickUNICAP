@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import {
   createCustomFieldSchema,
   customFieldSchema,
+  projectCustomFieldValuesSchema,
   taskCustomFieldValuesSchema,
   updateCustomFieldSchema,
   updateTaskCustomFieldValuesSchema,
@@ -36,6 +37,20 @@ export class ProjectCustomFieldsController {
     @ZodBody(createCustomFieldSchema) body: CreateCustomFieldInput,
   ) {
     return this.service.create(workspaceId, projectId, body);
+  }
+}
+
+@ApiTags('custom-fields')
+@UseGuards(WorkspaceMemberGuard)
+@Controller('projects/:projectId/custom-field-values')
+export class ProjectCustomFieldValuesController {
+  constructor(private readonly service: CustomFieldsService) {}
+
+  /** Valores de todas as tarefas do projeto em uma chamada, para as colunas da Lista. */
+  @Get()
+  @ZodResponse(projectCustomFieldValuesSchema)
+  list(@CurrentWorkspace() workspaceId: string, @Param('projectId', ParseUUIDPipe) projectId: string) {
+    return this.service.listProjectValues(workspaceId, projectId);
   }
 }
 
