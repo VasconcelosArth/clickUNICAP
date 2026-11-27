@@ -380,8 +380,9 @@ abaixo e estado vazio para quem ainda não tem workspace.
 - Resumo em três Cards: **Progresso**, **Vencidas** e **Vencem nesta semana**. São calculados no frontend, a partir da
   listagem sem filtros, para não mudarem quando alguém filtra.
 - Abas de visão abaixo do resumo. Kanban vem primeiro e abre por padrão.
-- Filtros abaixo das abas, valendo para Kanban e Lista: **Buscar por título** (Input), **Prioridade** e **Responsável**
-  (Select) e **Limpar filtros** quando houver filtro ativo. Usam o `taskFiltersSchema` e ficam na URL.
+- Filtros abaixo das abas, valendo para Kanban, Lista e Gantt (a aba **Horas** não os mostra): **Buscar por título**
+  (Input), **Prioridade** e **Responsável** (Select) e **Limpar filtros** quando houver filtro ativo. Usam o
+  `taskFiltersSchema` e ficam na URL.
 - **Nova tarefa** abre um Modal com os campos do `createTaskSchema`: título e descrição, status, prioridade, responsável,
   início e prazo.
 
@@ -464,8 +465,32 @@ com `border-violet-500` ao arrastar. Cada arquivo em uma linha, com ícone, nome
 
 **Campos personalizados:** usam Input, Select, Checkbox e Switch, sem estilo próprio.
 
-**Controle de tempo:** cronômetro com `text-sm font-medium tabular-nums`. Enquanto conta, mostra o selo de `in_progress`
-e o botão de pausa em `secondary`.
+**Controle de tempo (detalhe da tarefa)**
+
+- Slot `sidebar`, acima de Dependências, rótulo de seção **Controle de tempo**. Cronômetro com `text-sm font-medium
+  tabular-nums` (`00:00:00`) e, à direita, o botão `secondary` `sm` **Iniciar** ou **Pausar**. Enquanto conta, mostra o
+  selo de `in_progress` ao lado do cronômetro.
+- Timer ativo em outra tarefa: texto auxiliar **Timer ativo em [tarefa]. Iniciar aqui pausa o outro.**, com a tarefa
+  como link. Ao pausar, ou ao pausar o outro por iniciar aqui, um Alert de sucesso diz os minutos lançados.
+- **Total** como propriedade (rótulo à esquerda, valor à direita). Lista **Lançamentos** como a das dependências:
+  duração e autor, e abaixo a data e a nota como informação auxiliar; vazia mostra **Nenhum tempo lançado**. O timer
+  que conta aparece como **Contando**. Excluir pede confirmação na linha e só aparece para o autor e para o admin.
+- **Lançar tempo**: campos **Minutos** e **Nota (opcional)** e botão `secondary` de largura total. Grava na hora, sem
+  esperar o **Salvar** do modal (Enter também envia só o lançamento); o erro da API aparece num Alert.
+
+**Relatório de horas** (aba **Horas** do projeto)
+
+- Período com dois Inputs de data, **De** e **Até**, na URL; sem período, os últimos 30 dias. À direita, **Total no
+  período** como texto auxiliar com o valor em texto forte e, com tempo no período, o botão `secondary` `sm`
+  **Exportar CSV**. Período inválido mostra um Alert e não busca.
+- O CSV é gerado na tela a partir do relatório já carregado (sem rota própria): `;` como separador, horas com vírgula,
+  UTF-8 com BOM para o Excel, uma linha por membro e por tarefa e o total no fim. Nome `horas-<de>-a-<até>.csv`.
+- Dois Cards em `grid grid-cols-12 gap-6`, cada um `col-span-full xl:col-span-6`: **Por membro** (gráfico de barras
+  horizontais e tabela) e **Por tarefa** (tabela, com a tarefa como link para o detalhe). Colunas **Tempo** e **Do
+  total** alinhadas à direita, com `tabular-nums`.
+- Barras na cor da linha principal dos gráficos; o resto segue a seção Gráficos. O canvas tem `role="img"` e um
+  `aria-label` com os valores, que também estão na tabela.
+- Vazio: **Nenhum tempo lançado neste período**.
 
 **Minhas tarefas:** tabelas padrão em Cards, agrupadas em **Vencidas**, **Nesta semana**, **Mais adiante** e **Sem
 prazo**. Colunas: tarefa, projeto, status, prazo e prioridade. Grupo sem tarefas não aparece.

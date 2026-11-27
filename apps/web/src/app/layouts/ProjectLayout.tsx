@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useMatch, useParams } from 'react-router-dom';
 import { Badge, Button, ErrorState, LoadingList, Page, PageHeader, PlusIcon } from '@/components/ui';
 import { useProject } from '@/features/projects';
 import { NewTaskModal, TaskFiltersBar, TaskSummaryCards } from '@/features/tasks';
@@ -14,6 +14,7 @@ function ProjectViewTabs({ projectId }: { projectId: string }) {
     { label: 'Kanban', pathname: routes.board(workspaceId, projectId) },
     { label: 'Lista', pathname: routes.list(workspaceId, projectId) },
     { label: 'Gantt', pathname: routes.gantt(workspaceId, projectId) },
+    { label: 'Horas', pathname: routes.hours(workspaceId, projectId) },
   ];
 
   return (
@@ -43,6 +44,8 @@ export function ProjectLayout() {
   const { projectId = '' } = useParams();
   const { data: project, isPending, error, refetch } = useProject(projectId);
   const [creating, setCreating] = useState(false);
+  // O relatório de horas tem o próprio filtro de período: os filtros de tarefa não valem para ele
+  const onHours = useMatch('/w/:workspaceId/p/:projectId/hours') !== null;
 
   if (isPending) {
     return (
@@ -78,7 +81,7 @@ export function ProjectLayout() {
       />
       <TaskSummaryCards projectId={projectId} />
       <ProjectViewTabs projectId={projectId} />
-      <TaskFiltersBar key={projectId} />
+      {!onHours && <TaskFiltersBar key={projectId} />}
       <Outlet context={{ archived }} />
       <NewTaskModal projectId={projectId} open={creating} onClose={() => setCreating(false)} />
     </Page>

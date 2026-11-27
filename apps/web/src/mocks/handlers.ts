@@ -5,6 +5,7 @@ import { kanbanHandlers } from '@/features/kanban/mocks/kanban.handlers';
 import { notificationsHandlers } from '@/features/notifications/mocks/notifications.handlers';
 import { projectsHandlers } from '@/features/projects/mocks/projects.handlers';
 import { tasksHandlers } from '@/features/tasks/mocks/tasks.handlers';
+import { timeTrackingHandlers } from '@/features/time-tracking/mocks/time-tracking.handlers';
 import { workspacesHandlers } from '@/features/workspaces/mocks/workspaces.handlers';
 
 export const handlers = [
@@ -16,4 +17,5 @@ export const handlers = [
   ...dependenciesHandlers,
   ...ganttHandlers,
   ...notificationsHandlers,
+  ...timeTrackingHandlers,
 ];

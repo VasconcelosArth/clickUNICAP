@@ -409,6 +409,35 @@ mesmo, e uma falha no ouvinte vai para o log sem afetar a ação de quem emitiu 
 tarefa, o projeto e o nome de quem causou (`null` nos avisos automáticos), para a tela não precisar buscar a tarefa.
 `refId` aponta para a tarefa, ou para o comentário nas menções.
 
+### Rotas de controle de tempo (já implementadas)
+
+Módulo `time-tracking` (Pessoa 10). Todas pedem o header `X-Workspace-Id`. Tarefa ou lançamento de outro workspace
+responde 404, e projeto de outro workspace também.
+
+| Rota | O que faz |
+|---|---|
+| `GET /api/tasks/:taskId/time-entries` | `{ entries, totalMinutes }`: as entradas (mais recentes pelo início), com o nome de quem lançou. O total soma só as paradas |
+| `POST /api/tasks/:taskId/time-entries/start` | Inicia o timer do usuário na tarefa (201). Resposta `{ timer, stopped }`: se havia um timer ativo em outra tarefa deste workspace, ele é parado e vem em `stopped`. Na tarefa que já conta, devolve o mesmo timer. Timer ativo em outro workspace: `TIMER_RUNNING_ELSEWHERE` (409) |
+| `GET /api/time-entries/current` | `{ timer }`: o timer ativo do usuário neste workspace, com `taskTitle`, ou `null` |
+| `POST /api/time-entries/current/stop` | Para o timer ativo e grava os minutos (200). Sem timer: 404 |
+| `POST /api/tasks/:taskId/time-entries` | Lançamento manual `{ minutes, startedAt?, note? }` (201). Sem `startedAt`, termina agora. Terminar no futuro: `TIME_ENTRY_IN_FUTURE` (400) |
+| `PATCH /api/time-entries/:id` | Muda `minutes` e/ou `note`. Os minutos mantêm o fim e recalculam o início. Timer ativo: `TIMER_RUNNING` (409) |
+| `DELETE /api/time-entries/:id` | Exclui (204) |
+| `GET /api/projects/:projectId/time-report?from&to` | Relatório de horas: `{ from, to, totalMinutes, byMember, byTask }`, com o tempo já parado do projeto que começou em `[from, to)`. As listas vêm do maior para o menor. `from` e `to` em ISO, com no máximo 366 dias (senão 422). Qualquer membro vê, inclusive em projeto arquivado |
+
+Regras: cada usuário tem **1 timer ativo**, em qualquer workspace (índice único parcial em `time_entries`). Iniciar
+outro para o anterior na mesma transação, que trava o timer ativo. Dois inícios ao mesmo tempo terminam com 1 timer
+contando e o outro parado: quem perde a corrida tenta de novo uma vez, e se perder de novo recebe
+`TIMER_ALREADY_RUNNING` (409). Um timer de outro workspace **não** é parado daqui, porque isso mexeria em dados de outro
+workspace. A resposta só diz que ele existe, sem mostrar a tarefa. Os minutos são inteiros, arredondados para baixo
+(`utils/duration.ts`), e um lançamento manual vai de 1 min a 24 h. Editar e excluir: o autor ou um admin do workspace
+(senão 403). Projeto arquivado é somente leitura (`PROJECT_ARCHIVED`, 409), mas o timer ativo ainda pode ser parado,
+também pela troca automática. Excluir a tarefa apaga o tempo dela, inclusive o timer ativo. No relatório, o timer que
+ainda conta fica de fora, e cada entrada conta inteira no período em que começou (não é cortada no limite). A tela
+manda o período já convertido do fuso de quem usa (início do primeiro dia e início do dia seguinte ao último); por
+causa do horário de verão, o limite de 366 dias tem 1 hora de folga. O export CSV é gerado na tela a partir desta
+resposta, sem rota própria.
+
 ### Rotas de workspaces (já implementadas)
 
 | Rota | Quem pode |

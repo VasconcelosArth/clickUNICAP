@@ -12,6 +12,7 @@ import { HealthModule } from '@/modules/health/health.module';
 import { NotificationsModule } from '@/modules/notifications/notifications.module';
 import { ProjectsModule } from '@/modules/projects/projects.module';
 import { TasksModule } from '@/modules/tasks/tasks.module';
+import { TimeTrackingModule } from '@/modules/time-tracking/time-tracking.module';
 import { UsersModule } from '@/modules/users/users.module';
 import { WorkspacesModule } from '@/modules/workspaces/workspaces.module';
 
@@ -36,6 +37,7 @@ import { WorkspacesModule } from '@/modules/workspaces/workspaces.module';
     TasksModule,
     DependenciesModule,
     NotificationsModule,
+    TimeTrackingModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

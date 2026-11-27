@@ -23,6 +23,7 @@ const AcceptInvitePage = lazy(() => workspaces().then((m) => ({ default: m.Accep
 const MembersPage = lazy(() => workspaces().then((m) => ({ default: m.MembersPage })));
 const BoardPage = lazy(() => import('@/features/kanban').then((m) => ({ default: m.BoardPage })));
 const GanttPage = lazy(() => import('@/features/gantt').then((m) => ({ default: m.GanttPage })));
+const TimeReportPage = lazy(() => import('@/features/time-tracking').then((m) => ({ default: m.TimeReportPage })));
 const TaskListPage = lazy(() => import('@/features/task-list').then((m) => ({ default: m.TaskListPage })));
 const MyTasksRoute = lazy(() => import('./layouts/MyTasksRoute').then((m) => ({ default: m.MyTasksRoute })));
 const ProjectLayout = lazy(() => import('./layouts/ProjectLayout').then((m) => ({ default: m.ProjectLayout })));
@@ -70,6 +71,7 @@ export function AppRoutes() {
                 <Route path="board" element={<BoardPage />} />
                 <Route path="list" element={<TaskListPage />} />
                 <Route path="gantt" element={<GanttPage />} />
+                <Route path="hours" element={<TimeReportPage />} />
               </Route>
               <Route path="t/:taskId" element={<TaskDetailRoute />} />
             </Route>
