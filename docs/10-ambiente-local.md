@@ -95,5 +95,7 @@ respondendo 204 para não revelar quais e-mails existem. O erro aparece no log d
 | Migration diz que a tabela já existe | Banco local com `push` antigo | `docker compose down -v && docker compose up -d && pnpm --filter api db:migrate` |
 | API não sobe: "RESEND_API_KEY: Obrigatória quando MAIL_TRANSPORT=resend" | Chave ausente ou sem o prefixo `re_` | Coloque a chave no `.env` ou volte para `MAIL_TRANSPORT=log` |
 | Recuperação de senha não chega | Remetente `onboarding@resend.dev` enviando para outro e-mail | Teste com o e-mail dono da conta Resend ou verifique um domínio |
+| Onde ficam os anexos enviados? | `STORAGE_LOCAL_PATH` (padrão `./uploads`) | Pasta relativa a `apps/api` (`apps/api/uploads`), fora do Git. Apagar a pasta não apaga os registros: o download passa a dar 404 |
+| Upload responde `422 FILE_TOO_LARGE` | Arquivo acima de `MAX_UPLOAD_BYTES` (10 MB) | Envie um arquivo menor; o teto aceito na configuração é 50 MB |
 | `429 Muitas tentativas` no login | Limite contra força bruta (5 por minuto por IP) | Espere 1 minuto |
 | Windows: scripts quebram por causa de CRLF | Fim de linha | O `.gitattributes` força LF; rode `git add --renormalize .` |

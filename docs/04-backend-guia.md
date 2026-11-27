@@ -409,6 +409,41 @@ mesmo, e uma falha no ouvinte vai para o log sem afetar a ação de quem emitiu 
 tarefa, o projeto e o nome de quem causou (`null` nos avisos automáticos), para a tela não precisar buscar a tarefa.
 `refId` aponta para a tarefa, ou para o comentário nas menções.
 
+### Rotas de anexos (já implementadas)
+
+Módulo `attachments` (Pessoa 7). Todas pedem o header `X-Workspace-Id`. Anexo ou tarefa de outro workspace responde
+404. Projeto arquivado é somente leitura: listar e baixar continuam, enviar e remover dão `409 PROJECT_ARCHIVED`.
+
+| Rota | O que faz |
+|---|---|
+| `POST /api/tasks/:taskId/attachments` | `multipart/form-data` com um arquivo no campo `file`. Devolve o anexo (201) |
+| `GET /api/tasks/:taskId/attachments` | Anexos da tarefa, do mais antigo ao mais novo |
+| `GET /api/attachments/:id` | Metadados: `id`, `taskId`, `fileName`, `mimeType`, `sizeBytes`, `uploadedBy`, `createdAt` |
+| `GET /api/attachments/:id/download` | O arquivo, sempre como download (`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, CSP `sandbox`) |
+| `DELETE /api/attachments/:id` | Só quem enviou ou um admin do workspace (senão `403 FORBIDDEN`). 204 |
+
+Regras do upload, todas no backend (`modules/attachments/utils/attachment-rules.ts`):
+
+- Tamanho máximo em `MAX_UPLOAD_BYTES` (10 MB). O limite é aplicado enquanto o arquivo chega, sem ler o resto.
+- Só extensões da lista: `pdf`, `png`, `jpg`/`jpeg`, `gif`, `webp`, `txt`, `csv`, `docx`, `xlsx`, `pptx`. O MIME
+  informado precisa combinar com a extensão, e o conteúdo é conferido pela assinatura do arquivo (texto não pode ter
+  bytes nulos). O `mimeType` gravado é o do servidor, nunca o do cliente.
+- Erros (422): `FILE_REQUIRED`, `EMPTY_FILE`, `FILE_TOO_LARGE`, `FILE_TYPE_NOT_ALLOWED`, `FILE_CONTENT_MISMATCH`,
+  `INVALID_UPLOAD`.
+- O nome é limpo (sem pastas, caracteres de controle ou reservados, até 200 caracteres) e serve só para exibir. O
+  arquivo é gravado com uma chave `uuid` gerada pelo servidor (`storage_key`), que nunca sai da API.
+
+Os bytes ficam atrás da interface `AttachmentStorage` (`ATTACHMENT_STORAGE`). Hoje só existe o disco
+(`STORAGE_DRIVER=local`, pasta em `STORAGE_LOCAL_PATH`, relativa a `apps/api`); os testes usam
+`MemoryAttachmentStorage`. Se a gravação do arquivo falhar, nada vai para o banco; se o banco falhar, o arquivo é
+apagado. Ao remover, o registro sai primeiro e o arquivo depois (uma falha no disco só vai para o log).
+
+**Pendência:** excluir uma tarefa (ou o workspace inteiro) apaga os registros dos anexos (`on delete cascade`), mas
+os arquivos continuam na pasta, sem nenhum registro apontando para eles (ninguém consegue baixá-los). Ainda não há
+evento de exclusão no catálogo de `core/events`. Quando houver (`task.deleted`/`workspace.deleted`, combinar com a
+Pessoa 1), o módulo `attachments` deve ouvi-lo e apagar os arquivos; como o cascade apaga os registros junto, o evento
+precisa levar as `storage_key` (ou ser emitido antes do delete).
+
 ### Rotas de workspaces (já implementadas)
 
 | Rota | Quem pode |

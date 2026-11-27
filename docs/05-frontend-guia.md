@@ -236,11 +236,14 @@ desativado:
 | Fora por enquanto | O que falta no backend | Dono |
 |---|---|---|
 | Subtarefas e comentários | Módulos `subtasks` e `comments` | Pessoa 4 |
-| Anexos | Módulo `attachments` | Pessoa 7 |
 | Campos personalizados | Módulo `custom-fields` | Pessoa 8 |
 | Controle de tempo | Módulo `time-tracking` | Pessoa 10 |
 
 Quando a rota ficar pronta, tire o item desta tabela no mesmo PR da tela.
+
+O backend de anexos já existe ([04 — Rotas de anexos](04-backend-guia.md#rotas-de-anexos-já-implementadas)): a tela
+(`features/attachments`, no slot `task-detail.attachments`) pode ser feita. O download sempre vem como
+`attachment`; para o preview de imagem e PDF, busque o arquivo pelo `api-client` e mostre um `blob:` URL.
 
 ## Checklist do PR de frontend
 
