@@ -40,6 +40,15 @@ class FakeRepo {
     if (row) this.rows = this.rows.filter((r) => r.id !== id);
     return row;
   }
+  async listStorageKeysByTask(workspaceId: string, taskId: string) {
+    return (await this.listByTask(workspaceId, taskId)).map((r) => r.storageKey);
+  }
+  async listStorageKeysByWorkspace(workspaceId: string) {
+    return this.rows.filter((r) => this.visible(workspaceId, r)).map((r) => r.storageKey);
+  }
+  async findExistingStorageKeys(keys: string[]) {
+    return new Set(this.rows.map((r) => r.storageKey).filter((key) => keys.includes(key)));
+  }
 }
 
 interface Fixture {
@@ -347,6 +356,56 @@ describe('AttachmentsService', () => {
       f.storage.failOnNextRemove();
       await f.service.remove({ userId: f.user, workspaceId: f.ws, isAdmin: false }, dto.id);
       expect(f.repo.rows).toHaveLength(0);
+    });
+  });
+
+  describe('cleanup of files left by deletions', () => {
+    it('reads the keys of a task and of a workspace, only inside the workspace', async () => {
+      const f = setup();
+      await f.service.upload({ userId: f.user, workspaceId: f.ws }, f.taskId, pdf('a.pdf'));
+      await f.service.upload({ userId: f.user, workspaceId: f.ws }, f.taskId, pdf('b.pdf'));
+      const keys = f.storage.keys();
+
+      await expect(f.service.storageKeysOfTask(f.ws, f.taskId)).resolves.toEqual(keys);
+      await expect(f.service.storageKeysOfWorkspace(f.ws)).resolves.toEqual(keys);
+      await expect(f.service.storageKeysOfTask(f.otherWs, f.taskId)).resolves.toEqual([]);
+      await expect(f.service.storageKeysOfWorkspace(f.otherWs)).resolves.toEqual([]);
+    });
+
+    it('removes the given files and only logs a failure, going on with the others', async () => {
+      const f = setup();
+      await f.service.upload({ userId: f.user, workspaceId: f.ws }, f.taskId, pdf('a.pdf'));
+      await f.service.upload({ userId: f.user, workspaceId: f.ws }, f.taskId, pdf('b.pdf'));
+      const [first, second] = f.storage.keys();
+      f.storage.failOnNextRemove();
+
+      await expect(f.service.removeStoredFiles([first ?? '', second ?? ''])).resolves.toBeUndefined();
+      expect(f.storage.keys()).toEqual([first]);
+    });
+
+    it('removes old files without a record and keeps recent ones and files with a record', async () => {
+      const f = setup();
+      const now = new Date('2026-11-27T12:00:00Z');
+      const longAgo = new Date('2026-11-27T10:00:00Z');
+      const dto = await f.service.upload({ userId: f.user, workspaceId: f.ws }, f.taskId, pdf());
+      const [kept] = f.storage.keys();
+      const orphan = '0b5c1a30-0000-4000-8000-000000000001';
+      const recentOrphan = '0b5c1a30-0000-4000-8000-000000000002';
+      await f.storage.save(orphan, Buffer.from('x'));
+      await f.storage.save(recentOrphan, Buffer.from('x'));
+      f.storage.setModifiedAt(kept ?? '', longAgo);
+      f.storage.setModifiedAt(orphan, longAgo);
+      f.storage.setModifiedAt(recentOrphan, now);
+
+      const olderThan = new Date('2026-11-27T11:00:00Z');
+      await expect(f.service.removeOrphanFiles(olderThan)).resolves.toBe(1);
+      expect(f.storage.keys().sort()).toEqual([kept, recentOrphan].sort());
+      await expect(f.service.get(f.ws, dto.id)).resolves.toMatchObject({ id: dto.id });
+    });
+
+    it('does nothing when there is no old file', async () => {
+      const f = setup();
+      await expect(f.service.removeOrphanFiles(new Date('2000-01-01T00:00:00Z'))).resolves.toBe(0);
     });
   });
 });

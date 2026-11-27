@@ -13,10 +13,16 @@ export class StorageFileNotFoundError extends Error {
 
 /** Thrown when the storage cannot write, read or remove. Never carries file system paths. */
 export class StorageFailureError extends Error {
-  constructor(operation: 'write' | 'read' | 'remove', code?: string) {
+  constructor(operation: 'write' | 'read' | 'remove' | 'list', code?: string) {
     super(`Storage ${operation} failed${code ? ` (${code})` : ''}`);
     this.name = 'StorageFailureError';
   }
+}
+
+/** A file found in the storage, for the orphan cleanup. */
+export interface StoredFileInfo {
+  storageKey: string;
+  modifiedAt: Date;
 }
 
 /**
@@ -30,6 +36,8 @@ export interface AttachmentStorage {
   read(storageKey: string): Promise<Buffer>;
   /** Idempotent: removing a missing file is not an error. */
   remove(storageKey: string): Promise<void>;
+  /** Every stored file with a valid key (anything else in the folder is ignored). */
+  list(): Promise<StoredFileInfo[]>;
 }
 
 export const STORAGE_KEY_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

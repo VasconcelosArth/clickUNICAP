@@ -16,7 +16,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/core/database/seed.ts",
-    "db:seed:demo": "tsx src/core/database/seed-demo.ts"
+    "db:seed:demo": "tsx src/core/database/seed-demo.ts",
+    "attachments:orphans": "pnpm run build && node --env-file-if-exists=../../.env dist/modules/attachments/scripts/remove-orphan-files.js"
   },
   "dependencies": {
     "@clickunicap/shared": "workspace:*",

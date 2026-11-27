@@ -122,6 +122,41 @@ export class AttachmentsService {
     await this.discardStoredFile(deleted.storageKey);
   }
 
+  // ---------- files left behind by deletions (see AttachmentsListener) ----------
+
+  /** Keys to clean up when the task is deleted. Read before the delete: the cascade removes the records. */
+  storageKeysOfTask(workspaceId: string, taskId: string): Promise<string[]> {
+    return this.repo.listStorageKeysByTask(workspaceId, taskId);
+  }
+
+  /** Keys to clean up when the whole workspace is deleted. */
+  storageKeysOfWorkspace(workspaceId: string): Promise<string[]> {
+    return this.repo.listStorageKeysByWorkspace(workspaceId);
+  }
+
+  /** Removes files whose records are already gone. Never throws: a failure only goes to the log. */
+  async removeStoredFiles(storageKeys: readonly string[]): Promise<void> {
+    for (const storageKey of storageKeys) await this.discardStoredFile(storageKey);
+  }
+
+  /**
+   * Safety net for files without a record (a crash between steps, or deletions before the cleanup existed).
+   * Only files older than `olderThan` are touched, so an upload in progress (file saved, record not yet) is safe.
+   * Returns how many files were removed.
+   */
+  async removeOrphanFiles(olderThan: Date): Promise<number> {
+    const candidates = (await this.storage.list()).filter((file) => file.modifiedAt < olderThan);
+    if (candidates.length === 0) return 0;
+
+    const existing = await this.repo.findExistingStorageKeys(candidates.map((file) => file.storageKey));
+    const orphans = candidates.filter((file) => !existing.has(file.storageKey));
+    let removed = 0;
+    for (const { storageKey } of orphans) {
+      if (await this.discardStoredFile(storageKey)) removed += 1;
+    }
+    return removed;
+  }
+
   private async mustFind(workspaceId: string, id: string): Promise<AttachmentRow> {
     const row = await this.repo.findById(workspaceId, id);
     if (!row) throw new NotFoundError('Anexo', id);
@@ -135,11 +170,13 @@ export class AttachmentsService {
   }
 
   /** Best effort: a leftover file is unreachable (no record points to it) and must not fail the request. */
-  private async discardStoredFile(storageKey: string): Promise<void> {
+  private async discardStoredFile(storageKey: string): Promise<boolean> {
     try {
       await this.storage.remove(storageKey);
+      return true;
     } catch {
       this.logger.warn('Não foi possível apagar um arquivo de anexo do storage');
+      return false;
     }
   }
 

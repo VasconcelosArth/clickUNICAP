@@ -4,6 +4,7 @@ import { ProjectsModule } from '@/modules/projects/projects.module';
 import { TasksModule } from '@/modules/tasks/tasks.module';
 import { AttachmentsController, TaskAttachmentsController } from './attachments.controller';
 import { AttachmentFileInterceptor } from './attachments.interceptor';
+import { AttachmentsListener } from './attachments.listener';
 import { AttachmentsRepository } from './attachments.repository';
 import { AttachmentsService } from './attachments.service';
 import { ATTACHMENT_STORAGE } from './storage/attachment-storage';
@@ -15,6 +16,7 @@ import { DiskAttachmentStorage } from './storage/disk-attachment-storage';
   providers: [
     AttachmentsService,
     AttachmentsRepository,
+    AttachmentsListener,
     AttachmentFileInterceptor,
     {
       provide: ATTACHMENT_STORAGE,

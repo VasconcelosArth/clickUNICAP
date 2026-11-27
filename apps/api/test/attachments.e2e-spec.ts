@@ -6,6 +6,7 @@ import type { Attachment } from '@clickunicap/shared';
 import { AppModule } from '@/app.module';
 import { AppConfig } from '@/core/config';
 import { configureApp } from '@/main';
+import { AttachmentsService } from '@/modules/attachments/attachments.service';
 import { ATTACHMENT_STORAGE } from '@/modules/attachments/storage/attachment-storage';
 import { MemoryAttachmentStorage } from '@/modules/attachments/storage/memory-attachment-storage';
 import { registerUser, registerUserWithWorkspace } from './utils/auth-helpers';
@@ -16,6 +17,15 @@ type Agent = Awaited<ReturnType<typeof registerUser>>['agent'];
 
 const PDF = 'application/pdf';
 const pdfBuffer = (extra = '') => Buffer.from(`%PDF-1.7 ${extra}`);
+
+/** Os arquivos saem do storage depois da resposta (evento depois do commit): espera até a condição valer. */
+async function eventually(check: () => boolean, timeoutMs = 2000): Promise<void> {
+  const start = Date.now();
+  while (!check()) {
+    if (Date.now() - start > timeoutMs) throw new Error('A condição não foi atendida a tempo');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
 
 describe('Anexos (e2e)', () => {
   let app: INestApplication;
@@ -311,6 +321,75 @@ describe('Anexos (e2e)', () => {
     await agent.delete(`/api/tasks/${task.id}`).set(h).expect(204);
     await agent.get(`/api/attachments/${id}`).set(h).expect(404);
     await agent.get(`/api/attachments/${id}/download`).set(h).expect(404);
+  });
+
+  it('excluir a tarefa apaga os arquivos dela do storage, sem tocar nos de outra tarefa', async () => {
+    const { agent, workspace, project, task, h } = await setup();
+    const other = await createTask(agent, workspace.id, project.id);
+    await upload(agent, workspace.id, task.id).expect(201);
+    await upload(agent, workspace.id, task.id, pdfBuffer('2')).expect(201);
+    await upload(agent, workspace.id, other.id).expect(201);
+    const [first, second, kept] = storage.keys();
+
+    await agent.delete(`/api/tasks/${task.id}`).set(h).expect(204);
+
+    await eventually(() => !storage.has(first ?? '') && !storage.has(second ?? ''));
+    expect(storage.keys()).toEqual([kept]);
+    await agent.get(`/api/tasks/${other.id}/attachments`).set(h).expect(200);
+  });
+
+  it('excluir a tarefa continua dando 204 se o storage falhar ao apagar o arquivo', async () => {
+    const { agent, workspace, task, h } = await setup();
+    await upload(agent, workspace.id, task.id).expect(201);
+    storage.failOnNextRemove();
+
+    await agent.delete(`/api/tasks/${task.id}`).set(h).expect(204);
+    await agent.get(`/api/tasks/${task.id}`).set(h).expect(404);
+    await eventually(() => !storage.failsNextRemove); // a falha aconteceu e foi só para o log
+    expect(storage.size).toBe(1);
+  });
+
+  it('exclusão recusada (projeto arquivado) mantém os arquivos', async () => {
+    const { agent, workspace, project, task, h } = await setup();
+    await upload(agent, workspace.id, task.id).expect(201);
+    await agent.post(`/api/projects/${project.id}/archive`).set(h).expect(200);
+
+    await agent.delete(`/api/tasks/${task.id}`).set(h).expect(409);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(storage.size).toBe(1);
+  });
+
+  it('excluir o workspace apaga os arquivos de todas as tarefas dele, sem tocar nos de outro workspace', async () => {
+    const { agent, workspace, project, task } = await setup();
+    const other = await createTask(agent, workspace.id, project.id);
+    await upload(agent, workspace.id, task.id).expect(201);
+    await upload(agent, workspace.id, other.id).expect(201);
+    const elsewhere = await setup();
+    await upload(elsewhere.agent, elsewhere.workspace.id, elsewhere.task.id).expect(201);
+    const kept = storage.keys().at(-1);
+
+    await agent.delete(`/api/workspaces/${workspace.id}`).expect(204);
+
+    await eventually(() => storage.size === 1);
+    expect(storage.keys()).toEqual([kept]);
+  });
+
+  it('limpeza de órfãos: apaga só arquivos antigos sem registro', async () => {
+    const { agent, workspace, task } = await setup();
+    await upload(agent, workspace.id, task.id).expect(201);
+    const [withRecord] = storage.keys();
+    const orphan = randomUUID();
+    const recentOrphan = randomUUID();
+    await storage.save(orphan, Buffer.from('x'));
+    await storage.save(recentOrphan, Buffer.from('x'));
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60_000);
+    storage.setModifiedAt(withRecord ?? '', twoHoursAgo);
+    storage.setModifiedAt(orphan, twoHoursAgo);
+
+    const removed = await app.get(AttachmentsService).removeOrphanFiles(new Date(Date.now() - 60 * 60_000));
+
+    expect(removed).toBe(1);
+    expect(storage.keys().sort()).toEqual([withRecord, recentOrphan].sort());
   });
 
   it('Swagger publica as rotas de anexos (upload multipart)', async () => {

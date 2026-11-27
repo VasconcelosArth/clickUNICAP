@@ -1,9 +1,10 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 import {
   type AttachmentStorage,
   StorageFailureError,
   StorageFileNotFoundError,
+  type StoredFileInfo,
   isValidStorageKey,
 } from './attachment-storage';
 
@@ -47,6 +48,27 @@ export class DiskAttachmentStorage implements AttachmentStorage {
     } catch (error) {
       throw new StorageFailureError('remove', errorCode(error));
     }
+  }
+
+  async list(): Promise<StoredFileInfo[]> {
+    let names: string[];
+    try {
+      names = await readdir(this.rootDir);
+    } catch (error) {
+      if (errorCode(error) === 'ENOENT') return []; // nothing was uploaded yet
+      throw new StorageFailureError('list', errorCode(error));
+    }
+
+    const files: StoredFileInfo[] = [];
+    for (const name of names.filter(isValidStorageKey)) {
+      try {
+        const info = await stat(resolve(this.rootDir, name));
+        if (info.isFile()) files.push({ storageKey: name, modifiedAt: info.mtime });
+      } catch {
+        // removed while listing: nothing to clean up
+      }
+    }
+    return files;
   }
 
   /** Only server-generated UUID keys are accepted, so the path cannot escape `rootDir`. */

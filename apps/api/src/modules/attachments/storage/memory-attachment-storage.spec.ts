@@ -39,4 +39,12 @@ describe('MemoryAttachmentStorage', () => {
     await storage.save(key, Buffer.from('a'));
     await expect(storage.save(key, Buffer.from('b'))).rejects.toBeInstanceOf(StorageFailureError);
   });
+  it('lists the stored files with a modification date that tests can change', async () => {
+    const storage = new MemoryAttachmentStorage();
+    const key = generateStorageKey();
+    await storage.save(key, Buffer.from('a'));
+    const old = new Date('2020-01-01T00:00:00Z');
+    storage.setModifiedAt(key, old);
+    await expect(storage.list()).resolves.toEqual([{ storageKey: key, modifiedAt: old }]);
+  });
 });

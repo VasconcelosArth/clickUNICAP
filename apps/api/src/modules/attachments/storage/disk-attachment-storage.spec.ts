@@ -66,4 +66,17 @@ describe('DiskAttachmentStorage', () => {
     expect(error).toBeInstanceOf(StorageFailureError);
     expect((error as Error).message).not.toContain(root);
   });
+  it('lists only stored files with valid keys, with their modification date', async () => {
+    const key = generateStorageKey();
+    await storage.save(key, Buffer.from('x'));
+    await writeFile(join(root, 'uploads', 'notes.txt'), 'not an attachment');
+
+    const files = await storage.list();
+    expect(files.map((file) => file.storageKey)).toEqual([key]);
+    expect(Number.isNaN(files[0]?.modifiedAt.getTime())).toBe(false); // fs dates come from another realm in Jest
+  });
+
+  it('lists nothing when the storage directory does not exist yet', async () => {
+    await expect(storage.list()).resolves.toEqual([]);
+  });
 });
