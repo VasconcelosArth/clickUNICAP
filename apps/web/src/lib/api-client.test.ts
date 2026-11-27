@@ -85,4 +85,65 @@ describe('cliente HTTP', () => {
     await expect(api.post('/auth/login', {})).rejects.toMatchObject({ message: 'Sessão inválida' });
     expect(refreshed).toBe(false);
   });
+
+  it('envia o arquivo com o workspace no header e avisa o progresso no fim', async () => {
+    // O MSW não lê o FormData do jsdom enviado por XMLHttpRequest: o teste confere a rota e o header
+    let header: string | null = null;
+    server.use(
+      http.post('*/arquivos', ({ request }) => {
+        header = request.headers.get('X-Workspace-Id');
+        return HttpResponse.json({ id: 'a1' }, { status: 201 });
+      }),
+    );
+    useWorkspaceStore.setState({ activeWorkspaceId: ids.workspace });
+    const form = new FormData();
+    form.append('file', new File(['oi'], 'nota.txt', { type: 'text/plain' }));
+    const onProgress = vi.fn();
+
+    await expect(api.upload('/arquivos', form, { onProgress })).resolves.toEqual({ id: 'a1' });
+
+    expect(header).toBe(ids.workspace);
+    expect(onProgress).toHaveBeenLastCalledWith(1);
+  });
+
+  it('converte o erro do upload em ApiError', async () => {
+    server.use(
+      http.post('*/arquivos', () =>
+        HttpResponse.json(
+          { statusCode: 422, error: 'FILE_TOO_LARGE', message: 'O arquivo passa do limite de 10 MB' },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    const error = await api.upload('/arquivos', new FormData()).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ statusCode: 422, error: 'FILE_TOO_LARGE' });
+  });
+
+  it('renova a sessão no 401 do upload e repete o envio', async () => {
+    let calls = 0;
+    server.use(
+      http.post('*/arquivos', () => (++calls === 1 ? unauthorized() : HttpResponse.json({ ok: true }))),
+      http.post('*/auth/refresh', () => HttpResponse.json({ user })),
+    );
+
+    await expect(api.upload('/arquivos', new FormData())).resolves.toEqual({ ok: true });
+    expect(calls).toBe(2);
+  });
+
+  it('baixa um arquivo como Blob e converte o erro em ApiError', async () => {
+    server.use(
+      http.get('*/arquivos/1', () => new HttpResponse('conteúdo', { headers: { 'Content-Type': 'text/plain' } })),
+      http.get('*/arquivos/2', () =>
+        HttpResponse.json({ statusCode: 404, error: 'NOT_FOUND', message: 'Anexo não encontrado' }, { status: 404 }),
+      ),
+    );
+
+    const blob = await api.getBlob('/arquivos/1');
+    expect(blob.size).toBe(new TextEncoder().encode('conteúdo').length);
+    expect(blob.type).toMatch(/^text\/plain/);
+    await expect(api.getBlob('/arquivos/2')).rejects.toMatchObject({ statusCode: 404 });
+  });
 });
