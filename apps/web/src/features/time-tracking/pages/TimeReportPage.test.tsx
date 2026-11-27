@@ -58,8 +58,9 @@ describe('TimeReportPage', () => {
     // Do início de 1/11 ao início de 1/12, no fuso de quem usa
     expect(periods).toEqual([{ from: new Date(2026, 10, 1).toISOString(), to: new Date(2026, 11, 1).toISOString() }]);
 
+    // O gráfico carrega sob demanda (lazy)
     expect(
-      screen.getByRole('img', { name: 'Horas por membro. Ana Souza: 1 h 30 min, Bruno Lima: 45 min' }),
+      await screen.findByRole('img', { name: 'Horas por membro. Ana Souza: 1 h 30 min, Bruno Lima: 45 min' }),
     ).toBeVisible();
     const [members, tasks] = screen.getAllByRole('table');
     const memberRows = within(members!).getAllByRole('row').slice(1);

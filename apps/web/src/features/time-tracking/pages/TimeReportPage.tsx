@@ -1,12 +1,14 @@
 import type { TimeReport } from '@clickunicap/shared';
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Alert, Card, CardHeader, EmptyState, ErrorState, FormField, Input, Skeleton } from '@/components/ui';
 import { useTaskLink } from '@/hooks/useTaskLink';
 import { useTimeReport } from '../api/time-tracking.queries';
-import { HoursBarChart } from '../components/HoursBarChart';
 import { useReportPeriod } from '../hooks/useReportPeriod';
 import { formatMinutes } from '../utils/format';
+
+// O Chart.js só carrega nesta tela: a feature também entra no detalhe da tarefa (slot), que não usa o gráfico
+const HoursBarChart = lazy(() => import('../components/HoursBarChart').then((m) => ({ default: m.HoursBarChart })));
 
 const share = (minutes: number, total: number) => `${Math.round((minutes / total) * 100)}%`;
 
@@ -26,7 +28,9 @@ function ByMember({ report }: { report: TimeReport }) {
     <Card className="col-span-full xl:col-span-6">
       <CardHeader title="Por membro" />
       <div className="px-5 pt-4">
-        <HoursBarChart items={items} label={`Horas por membro. ${summary}`} />
+        <Suspense fallback={<Skeleton className="h-32" />}>
+          <HoursBarChart items={items} label={`Horas por membro. ${summary}`} />
+        </Suspense>
       </div>
       <div className="p-3 overflow-x-auto">
         <table className={tableClass}>
