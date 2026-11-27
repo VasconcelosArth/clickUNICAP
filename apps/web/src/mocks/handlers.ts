@@ -1,3 +1,4 @@
+import { attachmentsHandlers } from '@/features/attachments/mocks/attachments.handlers';
 import { authHandlers } from '@/features/auth/mocks/auth.handlers';
 import { dependenciesHandlers } from '@/features/dependencies/mocks/dependencies.handlers';
 import { ganttHandlers } from '@/features/gantt/mocks/gantt.handlers';
@@ -14,6 +15,7 @@ export const handlers = [
   ...tasksHandlers,
   ...kanbanHandlers,
   ...dependenciesHandlers,
+  ...attachmentsHandlers,
   ...ganttHandlers,
   ...notificationsHandlers,
 ];
