@@ -304,6 +304,15 @@ describe('Anexos (e2e)', () => {
     await agent.get(`/api/attachments/${id}`).set(h).expect(404);
   });
 
+  it('excluir a tarefa apaga os registros dos anexos dela (on delete cascade)', async () => {
+    const { agent, workspace, task, h } = await setup();
+    const id = ((await upload(agent, workspace.id, task.id).expect(201)).body as Attachment).id;
+
+    await agent.delete(`/api/tasks/${task.id}`).set(h).expect(204);
+    await agent.get(`/api/attachments/${id}`).set(h).expect(404);
+    await agent.get(`/api/attachments/${id}/download`).set(h).expect(404);
+  });
+
   it('Swagger publica as rotas de anexos (upload multipart)', async () => {
     const res = await request(app.getHttpServer()).get('/api/docs-json').expect(200);
     const uploadRoute = res.body.paths['/api/tasks/{taskId}/attachments'].post;

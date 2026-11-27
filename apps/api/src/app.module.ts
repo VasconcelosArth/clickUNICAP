@@ -6,6 +6,7 @@ import { ConfigModule } from '@/core/config';
 import { DatabaseModule } from '@/core/database/database.module';
 import { AllExceptionsFilter } from '@/core/filters/all-exceptions.filter';
 import { MailModule } from '@/core/mail/mail.module';
+import { AttachmentsModule } from '@/modules/attachments/attachments.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { DependenciesModule } from '@/modules/dependencies/dependencies.module';
 import { HealthModule } from '@/modules/health/health.module';
@@ -36,6 +37,7 @@ import { WorkspacesModule } from '@/modules/workspaces/workspaces.module';
     TasksModule,
     DependenciesModule,
     NotificationsModule,
+    AttachmentsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

@@ -16,7 +16,7 @@ import { ApiBody, ApiConsumes, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import { attachmentSchema } from '@clickunicap/shared';
 import { CurrentUser, type AuthUser } from '@/core/auth';
-import { CurrentMembership, CurrentWorkspace, WorkspaceMemberGuard } from '@/core/guards';
+import { CurrentMembership, CurrentWorkspace, type WorkspaceContext, WorkspaceMemberGuard } from '@/core/guards';
 import { ZodResponse } from '@/core/swagger/zod-body';
 import { AttachmentFileInterceptor } from './attachments.interceptor';
 import { AttachmentsService, type UploadedFileData } from './attachments.service';
@@ -88,7 +88,7 @@ export class AttachmentsController {
   remove(
     @CurrentUser() user: AuthUser,
     @CurrentWorkspace() workspaceId: string,
-    @CurrentMembership() membership: { role: string },
+    @CurrentMembership() membership: WorkspaceContext,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.service.remove({ userId: user.id, workspaceId, isAdmin: membership.role === 'admin' }, id);
