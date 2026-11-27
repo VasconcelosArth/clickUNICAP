@@ -1,5 +1,7 @@
-import { createSubtaskSchema } from '@clickunicap/shared';
-import { useState } from 'react';
+import { createSubtaskSchema, type CreateSubtaskInput } from '@clickunicap/shared';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import type { z } from 'zod';
 import type { TaskSlotProps } from '@/app/slots/task-detail-slots';
 import { Alert, Button, ErrorState, Input, Skeleton } from '@/components/ui';
 import { useCreateSubtask, useSubtasks } from '../api/subtasks.queries';
@@ -8,16 +10,22 @@ import { SubtaskItem } from './SubtaskItem';
 export function SubtasksPanel({ taskId }: TaskSlotProps) {
   const { data: subtasks, isPending, error, refetch } = useSubtasks(taskId);
   const create = useCreateSubtask(taskId);
-  const [title, setTitle] = useState('');
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm<z.input<typeof createSubtaskSchema>, unknown, CreateSubtaskInput>({
+    resolver: zodResolver(createSubtaskSchema),
+    defaultValues: { title: '' },
+  });
 
   const total = subtasks?.length ?? 0;
   const done = subtasks?.filter((subtask) => subtask.isDone).length ?? 0;
 
-  const add = () => {
-    const parsed = createSubtaskSchema.safeParse({ title });
-    if (!parsed.success) return;
-    create.mutate(parsed.data, { onSuccess: () => setTitle('') });
-  };
+  // Fica dentro do <form> da tarefa (slot): o envio é pelo clique ou pelo Enter, sem um <form> aninhado.
+  const add = handleSubmit((input) => create.mutate(input, { onSuccess: () => reset() }));
 
   return (
     <div>
@@ -66,17 +74,22 @@ export function SubtasksPanel({ taskId }: TaskSlotProps) {
         <Input
           aria-label="Nova subtarefa"
           placeholder="Adicionar subtarefa"
-          value={title}
           maxLength={200}
-          onChange={(event) => setTitle(event.target.value)}
+          aria-invalid={errors.title ? true : undefined}
+          {...register('title')}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault();
-              add();
+              void add();
             }
           }}
         />
-        <Button variant="secondary" loading={create.isPending} disabled={!title.trim()} onClick={add}>
+        <Button
+          variant="secondary"
+          loading={create.isPending}
+          disabled={!watch('title').trim()}
+          onClick={() => void add()}
+        >
           Adicionar
         </Button>
       </div>

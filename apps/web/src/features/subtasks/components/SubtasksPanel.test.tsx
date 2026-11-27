@@ -135,6 +135,50 @@ describe('SubtasksPanel', () => {
     expect(input).toHaveValue('');
   });
 
+  it('adiciona pelo botão', async () => {
+    const api = serveSubtasks([]);
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.type(await screen.findByLabelText('Nova subtarefa'), 'Revisar PR');
+    await user.click(screen.getByRole('button', { name: 'Adicionar' }));
+
+    await waitFor(() => expect(api.posts).toEqual([{ title: 'Revisar PR' }]));
+  });
+
+  it('não envia título só com espaços (validação do schema) e marca o campo', async () => {
+    const api = serveSubtasks([]);
+    const user = userEvent.setup();
+    renderPanel();
+
+    const input = await screen.findByLabelText('Nova subtarefa');
+    await user.type(input, '   {Enter}');
+
+    await waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'true'));
+    expect(api.posts).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Adicionar' })).toBeDisabled();
+  });
+
+  it('mostra o erro da API ao adicionar e mantém o texto', async () => {
+    server.use(
+      http.get('*/tasks/:taskId/subtasks', () => HttpResponse.json([])),
+      http.post('*/tasks/:taskId/subtasks', () =>
+        HttpResponse.json(
+          { statusCode: 409, error: 'PROJECT_ARCHIVED', message: 'Projeto arquivado é somente leitura' },
+          { status: 409 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPanel();
+
+    const input = await screen.findByLabelText('Nova subtarefa');
+    await user.type(input, 'Algo{Enter}');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Projeto arquivado é somente leitura');
+    expect(input).toHaveValue('Algo');
+  });
+
   it('renomeia a subtarefa', async () => {
     const api = serveSubtasks([second]);
     const user = userEvent.setup();
