@@ -136,6 +136,8 @@ describe('Comentários (e2e)', () => {
         workspaceId: workspace.id,
       },
     ]);
+    // Espera o ouvinte assíncrono gravar a notificação: senão ele corre junto com o reset do próximo teste.
+    await waitForNotifications(membro.agent, h, 1);
   });
 
   it('FLUXO: comentar com menção faz a notificação comment_mentioned chegar ao mencionado', async () => {
@@ -197,6 +199,9 @@ describe('Comentários (e2e)', () => {
     expect(await mentionsOf(c.body.id)).toEqual([]);
 
     await agent.delete(`/api/comments/${c.body.id}`).set(h).expect(204);
+    // Espera os ouvintes assíncronos (uma menção para cada) antes do reset do próximo teste.
+    await waitForNotifications(m1.agent, h, 1);
+    await waitForNotifications(m2.agent, h, 1);
   });
 
   it('projeto arquivado é somente leitura (409), mas a lista continua visível', async () => {
