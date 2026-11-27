@@ -34,7 +34,7 @@ export class AppConfig {
   }
   /** Armazenamento de anexos: pasta e tamanho máximo por arquivo (bytes). */
   get uploads() {
-    return { dir: this.env.UPLOADS_DIR, maxBytes: this.env.UPLOAD_MAX_BYTES };
+    return { driver: this.env.STORAGE_DRIVER, dir: this.env.STORAGE_LOCAL_PATH, maxBytes: this.env.MAX_UPLOAD_BYTES };
   }
   get jwt() {
     return {
