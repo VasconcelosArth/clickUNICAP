@@ -16,6 +16,8 @@ import { TasksModule } from '@/modules/tasks/tasks.module';
 import { TimeTrackingModule } from '@/modules/time-tracking/time-tracking.module';
 import { UsersModule } from '@/modules/users/users.module';
 import { WorkspacesModule } from '@/modules/workspaces/workspaces.module';
+import { SubtasksModule } from '@/modules/subtasks/subtasks.module';
+import { CommentsModule } from '@/modules/comments/comments.module';
 
 /**
  * Módulo raiz. Cada módulo de negócio novo é registrado em `imports`.
@@ -36,6 +38,8 @@ import { WorkspacesModule } from '@/modules/workspaces/workspaces.module';
     WorkspacesModule,
     ProjectsModule,
     TasksModule,
+    SubtasksModule,
+    CommentsModule,
     DependenciesModule,
     CustomFieldsModule,
     NotificationsModule,

@@ -8,6 +8,8 @@ import { projectsHandlers } from '@/features/projects/mocks/projects.handlers';
 import { tasksHandlers } from '@/features/tasks/mocks/tasks.handlers';
 import { timeTrackingHandlers } from '@/features/time-tracking/mocks/time-tracking.handlers';
 import { workspacesHandlers } from '@/features/workspaces/mocks/workspaces.handlers';
+import { subtasksHandlers } from '@/features/subtasks/mocks/subtasks.handlers';
+import { commentsHandlers } from '@/features/comments/mocks/comments.handlers';
 
 export const handlers = [
   ...authHandlers,
@@ -16,6 +18,8 @@ export const handlers = [
   ...tasksHandlers,
   ...kanbanHandlers,
   ...customFieldsHandlers,
+  ...subtasksHandlers,
+  ...commentsHandlers,
   ...dependenciesHandlers,
   ...ganttHandlers,
   ...notificationsHandlers,

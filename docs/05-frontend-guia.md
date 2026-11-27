@@ -236,7 +236,6 @@ desativado:
 
 | Fora por enquanto | O que falta no backend | Dono |
 |---|---|---|
-| Subtarefas e comentários | Módulos `subtasks` e `comments` | Pessoa 4 |
 | Anexos | Módulo `attachments` | Pessoa 7 |
 
 Quando a rota ficar pronta, tire o item desta tabela no mesmo PR da tela.

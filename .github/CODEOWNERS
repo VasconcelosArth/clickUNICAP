@@ -18,12 +18,13 @@
 /docker-compose.yml                     @constantino2710
 /docs/                                  @constantino2710
 
+/apps/api/src/modules/subtasks/         @Paulo-Goes
+/apps/api/src/modules/comments/         @Paulo-Goes
+/apps/web/src/features/subtasks/        @Paulo-Goes
+/apps/web/src/features/comments/        @Paulo-Goes
+
 /apps/web/src/features/task-list/       @pessoa2
 /apps/web/src/features/kanban/          @pessoa3
-/apps/api/src/modules/subtasks/         @pessoa4
-/apps/api/src/modules/comments/         @pessoa4
-/apps/web/src/features/subtasks/        @pessoa4
-/apps/web/src/features/comments/        @pessoa4
 /apps/api/src/modules/notifications/    @pessoa5
 /apps/web/src/features/notifications/   @pessoa5
 /apps/web/src/features/calendar/        @pessoa6
