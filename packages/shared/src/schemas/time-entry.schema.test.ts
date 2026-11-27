@@ -96,6 +96,9 @@ describe('timeReportQuerySchema', () => {
     const day = 24 * 60 * 60 * 1000;
     const end = (days: number) => new Date(Date.parse(from) + days * day).toISOString();
     expect(timeReportQuerySchema.safeParse({ from, to: end(MAX_TIME_REPORT_DAYS) }).success).toBe(true);
+    // Horário de verão: 366 dias de calendário podem ter 1 hora a mais
+    const withDst = new Date(Date.parse(end(MAX_TIME_REPORT_DAYS)) + 60 * 60 * 1000).toISOString();
+    expect(timeReportQuerySchema.safeParse({ from, to: withDst }).success).toBe(true);
     const tooLong = timeReportQuerySchema.safeParse({ from, to: end(MAX_TIME_REPORT_DAYS + 1) });
     expect(tooLong.success).toBe(false);
     expect(tooLong.error?.issues[0]?.message).toBe('O período pode ter no máximo 366 dias');

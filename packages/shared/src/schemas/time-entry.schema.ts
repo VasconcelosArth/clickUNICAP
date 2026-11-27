@@ -72,7 +72,13 @@ export type UpdateTimeEntryInput = z.infer<typeof updateTimeEntrySchema>;
 
 /** O relatório de horas cobre no máximo 1 ano por consulta. */
 export const MAX_TIME_REPORT_DAYS = 366;
-const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+/**
+ * Folga de 1 hora no limite: a tela manda dias inteiros no fuso de quem usa, e num fuso com horário de verão
+ * 366 dias de calendário podem somar 1 hora a mais.
+ */
+const MAX_TIME_REPORT_MS = MAX_TIME_REPORT_DAYS * DAY_MS + HOUR_MS;
 
 /**
  * Query de GET /api/projects/:projectId/time-report. Período `[from, to)` em ISO: a tela manda o início do primeiro dia
@@ -87,7 +93,7 @@ export const timeReportQuerySchema = z
     message: 'O fim do período precisa ser depois do início',
     path: ['to'],
   })
-  .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= MAX_TIME_REPORT_DAYS * DAY_MS, {
+  .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= MAX_TIME_REPORT_MS, {
     message: `O período pode ter no máximo ${MAX_TIME_REPORT_DAYS} dias`,
     path: ['to'],
   });
